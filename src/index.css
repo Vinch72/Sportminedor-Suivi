@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .section-title { @apply text-2xl font-bold mb-3; }
+  .section-bar { @apply bg-black text-white rounded-xl px-4 py-2 block w-full; }
+
+  /* Underline uniquement le texte "Données" quand l'onglet est actif */
+  .nav-donnees .lock {
+    text-decoration: none !important;
+    display: inline-block;       /* <- clé pour casser la décoration du parent */
+  }
+.nav-link[aria-current="page"] .tab-text {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+  text-decoration-color: currentColor; /* suit la couleur du texte (blanc) */
+  font-weight: 600;
+}
+
+  .btn-red {
+    @apply rounded-xl px-4 py-2 shadow text-white;
+    background-color:#E10600;
+  }
+  .btn-red:hover { @apply opacity-90; }
+  .btn-red:disabled { opacity:.5; cursor:not-allowed; }
+
+  .icon-btn     { @apply p-1.5 rounded-lg text-black; }
+  /* pas de hover:bg-black/5 ici -> on met la couleur en CSS pur */
+  .icon-btn:hover { background-color: rgb(0 0 0 / 0.05); }
+
+  .icon-btn-red { @apply p-1.5 rounded-lg; color:#E10600; }
+  /* hover équivalent à bg-red-50 sans slashs/arbitrary */
+  .icon-btn-red:hover { background-color: rgb(254 242 242); } /* ~ red-50 */
+
+  .card { @apply rounded-2xl border border-gray-200 p-3 bg-white shadow-sm; }
+
+  /* Forcer du texte blanc dans la nav (sinon noir sur noir) */
+.nav-link .tab-text { color:#fff !important; }
+.nav-link { color:#fff !important; }
+}
+  
