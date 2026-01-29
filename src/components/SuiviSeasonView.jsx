@@ -101,6 +101,38 @@ function colorToCss(raw) {
   return hexes.length === 1 ? hexes[0] : `linear-gradient(90deg, ${hexes.join(",")})`;
 }
 
+function normalizePhoneFR(input) {
+  let s = String(input || "").trim();
+
+  // enlève espaces, points, tirets, parenthèses
+  s = s.replace(/[^\d+]/g, "");
+
+  // 06/07 -> +336/+337
+  if (/^0[67]\d{8}$/.test(s)) return "+33" + s.slice(1);
+
+  // 33xxxxxxxxx -> +33xxxxxxxxx
+  if (/^33\d{9}$/.test(s)) return "+" + s;
+
+  // déjà en +33...
+  if (/^\+\d{8,15}$/.test(s)) return s;
+
+  return s; // on renvoie tel quel si format exotique
+}
+
+async function sendSmsViaServer({ to, content }) {
+  const r = await fetch("/api/send-sms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ to, content }),
+  });
+
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    throw new Error(data?.error || "Erreur lors de l’envoi SMS");
+  }
+  return data;
+}
+
 // Pastille 8px : cercle (ou dégradé) avec léger bord pour garder du contraste
 function Pastille({ value }) {
   if (isNoneColor(value)) return null;
@@ -1180,20 +1212,37 @@ for (const r of done) {
           type="button"
           className="px-4 h-10 rounded-xl border bg-white hover:bg-gray-50"
           onClick={async () => {
-            const msg = "Bonjour, Sportminedor vous informe que votre raquette est cordée et que vous pouvez venir la récupérer.";
-            try { await navigator.clipboard.writeText(msg); } catch {}
-          }}
-        >
-          Copier le message
-        </button>
+  const msg =
+    "Bonjour, Sportminedor vous informe que votre raquette est cordée et que vous pouvez venir la récupérer.";
 
-        <button
-          type="button"
-          className="ml-auto px-4 h-10 rounded-xl bg-brand-red text-white hover:opacity-90"
-          onClick={async () => {
-            await markMessageSent(msgDialog.row);
-            setMsgDialog(null);
-          }}
+  const raw = (msgDialog.phone || "").trim();
+  const tel = normalizePhoneFR(raw);
+
+  if (!tel) {
+    try {
+      await navigator.clipboard.writeText(msg);
+      alert("Pas de numéro trouvé. Message copié dans le presse-papiers.");
+    } catch {}
+    return;
+  }
+
+  try {
+    // ✅ envoi via ton endpoint Vercel -> httpSMS -> Android
+    await sendSmsViaServer({
+      to: tel,
+      content: msg,
+    });
+
+    // ✅ si OK : marquer automatiquement comme envoyé
+    await markMessageSent(msgDialog.row);
+
+    alert("SMS envoyé ✅");
+    setMsgDialog(null);
+  } catch (e) {
+    alert(`Erreur SMS : ${e?.message || e}`);
+  }
+}}
+
         >
           Marquer comme envoyé
         </button>
