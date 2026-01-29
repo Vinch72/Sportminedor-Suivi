@@ -107,7 +107,7 @@ useEffect(() => {
           supabase.from("statuts").select("statut_id").order("statut_id"),
           supabase.from("clubs").select("clubs, bobine_base, bobine_specific").order("clubs"),
           supabase.from("cordages").select("cordage, is_base").order("cordage"),
-          supabase.from("tournois").select("tournoi").order("tournoi"),
+          supabase.from("tournois").select("tournoi"),
           supabase.from("cordeur").select("cordeur").order("cordeur"),
         ]);
         const maybeErr = [cl, st, cb, co, tn, cr].find(r => r.error)?.error;
@@ -117,7 +117,17 @@ useEffect(() => {
         setStatuts(st.data || []);
         setClubs(cb.data || []);
         setCordages(co.data || []);
-        setTournois(tn.data || []);
+        const lieux = (tn.data || []).slice().sort((a, b) => {
+  const A = (a.tournoi || "").toString();
+  const B = (b.tournoi || "").toString();
+
+  if (U(A) === "MAGASIN" && U(B) !== "MAGASIN") return -1;
+  if (U(B) === "MAGASIN" && U(A) !== "MAGASIN") return 1;
+
+  return A.localeCompare(B, "fr", { sensitivity: "base" });
+});
+
+        setTournois(lieux);
         setCordeurs(cr.data || []);
 
        // Valeur par défaut du statut (si pas d'initialData) = "A FAIRE" (insensible aux accents/majuscules)
@@ -247,7 +257,7 @@ const finalTarif = calcTarif();
         lieu_id: lieu || null,
         cordage_id: cordageId,
         cordeur_id: cordeurId || null,
-        couleur: (couleur || null),
+        couleur: (couleur?.trim() ? couleur.trim() : "none"),
         tension: (tension || null),
         raquette: (raquette || null),
         note: (note || null),

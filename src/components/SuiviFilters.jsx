@@ -155,6 +155,19 @@ export function SuiviFilters({
           </select>
         </div>
 
+{/* Non payé */}
+<div className="flex flex-col">
+  <label className="text-xs font-medium mb-1">Paiement</label>
+  <button
+    type="button"
+    onClick={() => onChange({ onlyUnpaid: !filters.onlyUnpaid })}
+    className={`h-10 rounded-lg border px-3 text-sm transition
+      ${filters.onlyUnpaid ? "bg-brand-red text-white border-brand-red" : "bg-white text-black border-gray-200 hover:bg-gray-50"}`}
+    title="Afficher uniquement les raquettes non payées"
+  >
+    {filters.onlyUnpaid ? "Non payé ✅" : "Non payé"}
+  </button>
+</div>
 
         {/* Date exacte */}
         <div className="flex flex-col">
@@ -178,6 +191,7 @@ export function SuiviFilters({
               clubQuery: "",
               statutId: "",
               dateExact: "",
+              onlyUnpaid: false,
             })
           }
           className="icon-btn"

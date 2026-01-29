@@ -169,7 +169,7 @@ function isWithinWindow(today, start, end) {
 
 // === Helpers argent === 
 
-const euro = (n) => `${(Number(n) || 0).toLocaleString("fr-FR")} €`; 
+const euro = (n) => `${(Number(n) || 0).toLocaleString("fr-FR")}\u00A0€`;
 const parseMoney = (v) => { 
   if (v == null) return 0; 
   const s = String(v).replace(/\s/g, ""); 
@@ -187,6 +187,53 @@ const [stats, setStats] = useState({
     moisTotal: null, 
     moisRevenue: 0, 
 }); 
+
+const [presetFilters, setPresetFilters] = useState(null);
+const [activeQuickFilter, setActiveQuickFilter] = useState(null); // "AFAIRE" | "AREGLER" | null
+
+function scrollToList() {
+  requestAnimationFrame(() => {
+    const el = document.querySelector("[data-suivi-list]");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+const EMPTY_FILTERS = {
+  clientQuery: "",
+  phoneQuery: "",
+  clubQuery: "",
+  statutId: "",
+  dateExact: "",
+  cordeurId: "",
+  onlyUnpaid: false,
+};
+
+function toggleQuickFilter(kind) {
+  if (activeQuickFilter === kind) {
+    setActiveQuickFilter(null);
+    setPresetFilters({ ...EMPTY_FILTERS });  // ✅ reset complet
+    scrollToList();
+    return;
+  }
+
+  setActiveQuickFilter(kind);
+
+  if (kind === "AFAIRE") {
+    setPresetFilters({
+      ...EMPTY_FILTERS,
+      statutId: "A FAIRE",
+    });
+  }
+
+  if (kind === "AREGLER") {
+    setPresetFilters({
+      ...EMPTY_FILTERS,
+      onlyUnpaid: true,
+    });
+  }
+
+  scrollToList();
+}
 
 const { startISO: seasonStart, endISO: seasonEnd } = useMemo(() => getSeasonBounds(new Date()), []); 
 const { startISO: monthStart, endISO: monthEnd }   = useMemo(() => getMonthBounds(new Date()), []); 
@@ -225,6 +272,13 @@ useEffect(() => {
           .gte("date", monthStart) 
           .lte("date", monthEnd) 
           .neq("statut_id", "A FAIRE"); 
+          const qARegler = supabase
+          .from("suivi")
+          .select("id", { count: "exact", head: true })
+          .gte("date", seasonStart)
+          .lte("date", seasonEnd)
+          .or("reglement_mode.is.null,reglement_mode.eq.");
+
         // € du mois (toutes lignes du mois cordées) 
         const qTarifsMois = supabase 
           .from("suivi") 
@@ -232,10 +286,10 @@ useEffect(() => {
           .gte("date", monthStart) 
           .lte("date", monthEnd) 
           .neq("statut_id", "A FAIRE"); 
-        const [saison, aFaire, mois, tarifs] = await Promise.all([ 
-          qSaison, qAFaire, qMois, qTarifsMois 
+        const [saison, aFaire, mois, tarifs, aRegler] = await Promise.all([ 
+          qSaison, qAFaire, qMois, qTarifsMois, qARegler 
         ]); 
-        const firstErr = [saison, aFaire, mois, tarifs].find(r => r.error)?.error; 
+        const firstErr = [saison, aFaire, mois, tarifs, aRegler].find(r => r.error)?.error; 
         if (firstErr) throw firstErr; 
         // Helpers € 
         const parseMoney = (v) => { 
@@ -254,6 +308,7 @@ useEffect(() => {
           saisonTotal: saison.count ?? 0, 
           aFaire: aFaire.count ?? 0, 
           moisTotal: mois.count ?? 0, 
+          aRegler: aRegler.count ?? 0,
           moisRevenue, // ⬅️ utilise la somme calculée ci-dessus 
         }); 
       } catch (e) { 
@@ -270,29 +325,47 @@ useEffect(() => {
   <div className="w-[92vw] max-w-[1400px] mx-auto"> 
     
     {/* Titre + cartes sur UNE ligne */}
-<div className="flex items-center gap-4 mb-4">
+<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
   {/* Titre */}
-  <img src={logo} alt="" className="h-8 w-8 rounded-full select-none" />
-  <div className="flex items-center gap-2 shrink-0">
+ <div className="flex items-center gap-4">
+    <img src={logo} alt="" className="h-8 w-8 rounded-full select-none" />
     <h1 className="text-2xl font-bold flex items-center gap-2">Suivi</h1>
   </div>
 
   {/* Cartes (collées à droite) */}
-  <div className="ml-auto mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-    <Card title="Raquettes à faire" value={fmt(stats.aFaire, loading, err)} />
-    <Card title="Cordées (cette saison)" value={fmt(stats.saisonTotal, loading, err)} />
-    <Card title="Cordées (ce mois)" value={fmt(stats.moisTotal, loading, err)} />
-    <Card title="Argent généré (ce mois)" value={loading ? "…" : err ? "ERR" : euro(stats.moisRevenue)} />
-  </div>
+  <div className="sm:ml-auto grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <Card
+  title="À faire"
+  value={fmt(stats.aFaire, loading, err)}
+  icon="🎾"
+  active={activeQuickFilter === "AFAIRE"}
+  onClick={() => toggleQuickFilter("AFAIRE")}
+/>
+
+<Card
+  title="À régler"
+  value={fmt(stats.aRegler, loading, err)}
+  icon="💶"
+  active={activeQuickFilter === "AREGLER"}
+  onClick={() => toggleQuickFilter("AREGLER")}
+/>
+    <Card title="Cordées (saison)" value={fmt(stats.saisonTotal, loading, err)} icon="✅" />
+    <Card title="Cordées (mois)" value={fmt(stats.moisTotal, loading, err)} icon="📅" />
+    <Card
+    title="Revenu (mois)"
+    value={loading ? "…" : err ? "ERR" : euro(stats.moisRevenue)}
+    icon="💰"
+  />
+</div>
 </div>
 
 {/* 👉 Bandeau tournois entre le titre et les cartes */}
 <TournamentAlerts />
 
  {/* Nouvelle vue Saison → Mois */} 
-        <div className="mt-8"> 
-          <SuiviSeasonView /> 
-        </div> 
+          <div className="mt-8" data-suivi-list>
+  <SuiviSeasonView presetFilters={presetFilters} />
+</div>
       </div> 
     </div> 
   ); 
@@ -303,12 +376,30 @@ function fmt(value, loading, err) {
   return typeof value === "number" ? value : "—"; 
 } 
 
-function Card({ title, value }) { 
-  return ( 
-    <div className="bg-white rounded-xl shadow-card p-5 text-center border border-gray-100"> 
-      <div className="text-sm text-gray-500">{title}</div> 
-      <div className="mt-1 text-3xl font-extrabold tracking-tight">{value}</div> 
-      <div className="mt-3 h-1 w-10 mx-auto rounded bg-brand-red" /> 
-    </div> 
-  ); 
-} 
+function Card({ title, value, icon, onClick, active }) {
+  const clickable = typeof onClick === "function";
+  return (
+    <div
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (!clickable) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={[
+        "bg-white rounded-xl shadow-card p-4 text-center border transition",
+        clickable ? "cursor-pointer hover:shadow-md" : "",
+        active ? "border-brand-red ring-2 ring-brand-red/20" : "border-gray-100",
+      ].join(" ")}
+    >
+      {icon && <div className="text-2xl mb-1">{icon}</div>}
+      <div className="text-sm text-gray-500">{title}</div>
+      <div className="mt-1 text-3xl font-extrabold tracking-tight">{value}</div>
+      <div className="mt-3 h-1 w-10 mx-auto rounded bg-brand-red" />
+    </div>
+  );
+}

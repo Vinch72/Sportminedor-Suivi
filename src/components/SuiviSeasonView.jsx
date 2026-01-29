@@ -186,7 +186,7 @@ function decideStatut(statuts, { racket, bill, msg, ret }) {
 }
 
 // ===== Component =====
-export default function SuiviSeasonView() {
+export default function SuiviSeasonView({ presetFilters }) {
   const [rows, setRows] = useState([]);
   const [statuts, setStatuts] = useState([]);
   const [clients, setClients] = useState([]);
@@ -222,7 +222,12 @@ export default function SuiviSeasonView() {
   statutId: "",
   dateExact: "",
   cordeurId: "",
+  onlyUnpaid: false,
 });
+useEffect(() => {
+  if (!presetFilters) return;
+  setFilters((prev) => ({ ...prev, ...presetFilters }));
+}, [presetFilters]);
   const [openSeasons, setOpenSeasons] = useState({});
   const [openMonths, setOpenMonths] = useState({});
   const [editingRow, setEditingRow] = useState(null);
@@ -381,7 +386,7 @@ const mapCordageGainMagasin = useMemo(() => {
   const clientById = useMemo(() => Object.fromEntries(clientsOptions.map(c => [c.id, c.name])), [clientsOptions]);
   const clubById = useMemo(() => Object.fromEntries((clubsOptions ?? []).map((c) => [c.id, c.name])), [clubsOptions]);
 
-  // filtresconst phone = normalize(r.client_phone || "");
+  // filtres
   const normalize = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
   const strip = (s) => normalize(s).replace(/\s+/g, "");
   const filteredRows = useMemo(() => {
@@ -390,6 +395,10 @@ const mapCordageGainMagasin = useMemo(() => {
     const qPhone = strip(filters.phoneQuery);
     const exact = (filters.dateExact || "").trim(); // "YYYY-MM-DD"
     return (rows ?? []).filter((r) => {
+      if (filters.onlyUnpaid) {
+        const paid = !!(r.reglement_mode && String(r.reglement_mode).trim());
+        if (paid) return false;
+      }
       const clientName = normalize(clientLabel(r, mapClient));
       const phone = strip(r.client_phone || "");
       const clubName = normalize(
@@ -508,6 +517,7 @@ const indexById = useMemo(() => {
     if (error) { console.error(error); alert("Mise à jour du règlement refusée : " + (error.message || "")); return; }
     const updated = { ...row, ...patch };
     setRows(prev => prev.map(r => r.id === row.id ? updated : r));
+    window.dispatchEvent(new CustomEvent("suivi:updated", { detail: { id: row.id } }));
     return updated; // <-- on renvoie la ligne à jour
   }
 
@@ -549,6 +559,7 @@ const indexById = useMemo(() => {
     const { error } = await supabase.from("suivi").update({ statut_id: statut }).eq("id", row.id);
     if (error) { alert("Maj statut refusée: " + (error.message || "")); return false; }
     setRows(prev => prev.map(r => r.id === row.id ? { ...r, statut_id: statut } : r));
+    window.dispatchEvent(new CustomEvent("suivi:updated", { detail: { id: row.id } }));
     return true;
   }
 
@@ -568,6 +579,7 @@ async function toggleBill(row) {
     const { error } = await supabase.from("suivi").update(patch).eq("id", row.id);
     if (error) { alert("Maj règlement refusée: " + (error.message || "")); return; }
     setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...patch } : r));
+    window.dispatchEvent(new CustomEvent("suivi:updated", { detail: { id: row.id } }));
     await applyStatut(row, { ...f, bill: false });
   } else {
     // ouvrir la modale de choix du mode de paiement
