@@ -1191,62 +1191,49 @@ for (const r of done) {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="px-4 h-10 rounded-xl border bg-white hover:bg-gray-50"
-          onClick={async () => {
-            const msg = "Bonjour, Sportminedor vous informe que votre raquette est cordée et que vous pouvez venir la récupérer.";
-            const tel = (msgDialog.phone || "").trim();
-            if (tel) {
-              const smsUrl = `sms:${encodeURIComponent(tel)}?&body=${encodeURIComponent(msg)}`;
-              window.open(smsUrl, "_blank");
-            } else {
-              try { await navigator.clipboard.writeText(msg); alert("Pas de numéro trouvé. Message copié dans le presse-papiers."); } catch {}
-            }
-          }}
-        >
-          Envoyer le SMS
-        </button>
+  <button
+    type="button"
+    className="px-4 h-10 rounded-xl border bg-white hover:bg-gray-50"
+    onClick={async () => {
+      const msg =
+        "Bonjour, Sportminedor vous informe que votre raquette est cordée et que vous pouvez venir la récupérer.";
 
-        <button
-          type="button"
-          className="px-4 h-10 rounded-xl border bg-white hover:bg-gray-50"
-          onClick={async () => {
-  const msg =
-    "Bonjour, Sportminedor vous informe que votre raquette est cordée et que vous pouvez venir la récupérer.";
+      const raw = (msgDialog.phone || "").trim();
+      const tel = normalizePhoneFR(raw);
 
-  const raw = (msgDialog.phone || "").trim();
-  const tel = normalizePhoneFR(raw);
+      if (!tel) {
+        try {
+          await navigator.clipboard.writeText(msg);
+          alert("Pas de numéro trouvé. Message copié dans le presse-papiers.");
+        } catch {}
+        return;
+      }
 
-  if (!tel) {
-    try {
-      await navigator.clipboard.writeText(msg);
-      alert("Pas de numéro trouvé. Message copié dans le presse-papiers.");
-    } catch {}
-    return;
-  }
+      try {
+        await sendSmsViaServer({ to: tel, content: msg });
+        await markMessageSent(msgDialog.row);
+        alert("SMS envoyé ✅");
+        setMsgDialog(null);
+      } catch (e) {
+        alert(`Erreur SMS : ${e?.message || e}`);
+      }
+    }}
+  >
+    Envoyer le SMS
+  </button>
 
-  try {
-    // ✅ envoi via ton endpoint Vercel -> httpSMS -> Android
-    await sendSmsViaServer({
-      to: tel,
-      content: msg,
-    });
+  <button
+    type="button"
+    className="ml-auto px-4 h-10 rounded-xl bg-brand-red text-white hover:opacity-90"
+    onClick={async () => {
+      await markMessageSent(msgDialog.row);
+      setMsgDialog(null);
+    }}
+  >
+    Marquer comme envoyé
+  </button>
+</div>
 
-    // ✅ si OK : marquer automatiquement comme envoyé
-    await markMessageSent(msgDialog.row);
-
-    alert("SMS envoyé ✅");
-    setMsgDialog(null);
-  } catch (e) {
-    alert(`Erreur SMS : ${e?.message || e}`);
-  }
-}}
-
-        >
-          Marquer comme envoyé
-        </button>
-      </div>
     </div>
   </div>
 )}
