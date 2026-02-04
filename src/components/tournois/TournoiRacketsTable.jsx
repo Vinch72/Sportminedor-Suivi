@@ -5,10 +5,11 @@ import { supabase } from "../../utils/supabaseClient";
 import { IconTrash, IconEdit } from "../ui/Icons";
 import { paymentMeta, toCanonical } from "../../utils/payment";
 import TournoiRacketForm from "./TournoiRacketForm";
+import { computeGainCordeur } from "../../utils/computeGainCordeur";
 
 export default function TournoiRacketsTable({ tournoiName, locked = false, onFinalize, onUnlock }) {
-  const { rows, loading, remove, exportAllToSuivi, updateStatut, stats, revenuePaid, load, priceForRow } =
-    useTournoiRackets(tournoiName);
+const { rows, loading, remove, exportAllToSuivi, updateStatut, stats, revenuePaid, load, priceForRow } =
+  useTournoiRackets(tournoiName);
 
   const rowsRef = useRef(rows);
   useEffect(() => { rowsRef.current = rows; }, [rows]);
@@ -17,9 +18,20 @@ export default function TournoiRacketsTable({ tournoiName, locked = false, onFin
   const [exporting, setExporting] = useState(false);
   const [statuts, setStatuts] = useState([]);
   const [paymentModes, setPaymentModes] = useState([]);
-  const [payDialog, setPayDialog] = useState(null); // { row }
+  const [payDialog, setPayDialog] = useState(null); // { rows: [] }
   const [editingRow, setEditingRow] = useState(null);
   const [allowedCordeurs, setAllowedCordeurs] = useState([]); // pour l’éditeur
+
+  const [toast, setToast] = useState(null); 
+// toast: { type: "success"|"error"|"info", title: string, message?: string }
+
+const [confirmAllOpen, setConfirmAllOpen] = useState(false);
+
+function showToast(t) {
+  setToast(t);
+  window.clearTimeout(showToast._t);
+  showToast._t = window.setTimeout(() => setToast(null), 2600);
+}
 
   // Statuts
   useEffect(() => {
@@ -68,21 +80,34 @@ export default function TournoiRacketsTable({ tournoiName, locked = false, onFin
   };
 
   // Export “toutes”
-  const onExportAll = async () => {
-    if (!confirm("Ajouter toutes les raquettes non exportées au Suivi ?")) return;
-    setExporting(true);
-    try {
-      const res = await exportAllToSuivi();
-      alert(`Export terminé (${res.inserted} ajoutées).`);
-    } catch (e) {
-      console.error(e);
-      alert(e?.message || "Erreur export vers Suivi");
-    } finally {
-      setExporting(false);
-    }
-  };
+ const onExportAll = async () => {
+  setConfirmAllOpen(true);
+};
 
+const confirmExportAll = async () => {
+  setConfirmAllOpen(false);
+  setExporting(true);
+  try {
+    const res = await exportAllToSuivi();
+    showToast({
+      type: "success",
+      title: "Export terminé ✅",
+      message: `${res.inserted} raquette(s) ajoutée(s) au Suivi.`,
+    });
+  } catch (e) {
+    console.error(e);
+    showToast({
+      type: "error",
+      title: "Erreur export ❌",
+      message: e?.message || "Erreur export vers Suivi",
+    });
+  } finally {
+    setExporting(false);
+  }
+};
   // Export / Ré-export (individuel)
+  const [exportingId, setExportingId] = useState(null);
+
 function toISODateOnly(d) {
   if (!d) return new Date().toISOString().slice(0, 10);
 
@@ -100,8 +125,10 @@ function toISODateOnly(d) {
   return dt.toISOString().slice(0, 10);
 }
 
-  async function exportOne(row, { force = false } = {}) {
-    const payload = {
+async function exportOne(row, { force = false } = {}) {
+  setExportingId(row.id);
+  try {
+    await supabase.from("suivi").insert([{
       client_id: row.client_id ?? null,
       cordage_id: row.cordage_id ?? null,
       tension: row.tension ?? null,
@@ -110,20 +137,40 @@ function toISODateOnly(d) {
       date: toISODateOnly(row.date),
       raquette: row.raquette ?? null,
       club_id: row.club_id ?? null,
-      reglement_mode: row.reglement_mode ?? null,
+      reglement_mode: (row.offert || /offert/i.test(String(row.reglement_mode || ""))) ? "Offert" : (row.reglement_mode ?? null),
       reglement_date: row.reglement_date ?? null,
+      contacted_at: row.contacted_at ?? null,
       fourni: !!row.fourni,
-      offert: !!row.offert,
+      offert: !!(row.offert || /offert/i.test(String(row.reglement_mode || ""))),
       lieu_id: tournoiName,
-    };
-    const { error } = await supabase.from("suivi").insert([payload]);
-    if (error) { alert(error.message || "Export impossible"); return; }
+
+      // ✅ IMPORTANT : on force le tarif (comme ton exportAll)
+      tarif: String(priceForRow(row) || 0),
+    }]);
+
     if (!force && !row.exported) {
       await supabase.from("tournoi_raquettes").update({ exported: true }).eq("id", row.id);
       await load();
     }
+
+    showToast({
+      type: "success",
+      title: force ? "Ré-export effectué ✅" : "Export effectué ✅",
+      message: `${row.raquette || "Raquette"} ajoutée au Suivi.`,
+    });
+
     window.dispatchEvent(new CustomEvent("suivi:created"));
+  } catch (e) {
+    console.error(e);
+    showToast({
+      type: "error",
+      title: "Export impossible ❌",
+      message: e?.message || "Erreur export",
+    });
+  } finally {
+    setExportingId(null);
   }
+}
 
   async function withScrollPreserved(fn) {
   const el = scrollRef.current;
@@ -179,9 +226,22 @@ async function withScrollPreserved(fn) {
   });
 }
   async function toggleReturn(row) {
-    await withScrollPreserved(async () => {
+  await withScrollPreserved(async () => {
     const f = deriveFlags(row);
-    await applyStatut(row, { ...f, ret: !f.ret });
+    const nextRet = !f.ret;
+
+    // ✅ si on passe à RENDU et qu'il n'y a pas de contacted_at, on le set
+    if (nextRet && !row.contacted_at) {
+      const when = new Date().toISOString();
+      await supabase
+        .from("tournoi_raquettes")
+        .update({ contacted_at: when }, { returning: "minimal" })
+        .eq("id", row.id);
+
+      row = { ...row, contacted_at: when }; // pour que applyStatut ait la bonne info
+    }
+
+    await applyStatut(row, { ...f, ret: nextRet, msg: nextRet ? true : f.msg });
     await load();
   });
 }
@@ -199,7 +259,7 @@ async function withScrollPreserved(fn) {
 
   if (error) {
     console.warn(error);
-    alert("Maj message refusée.");
+    showToast({ type: "error", title: "Erreur", message: "Maj message refusée." });
     return;
   }
   await applyStatut({ ...row, contacted_at: nextWhen }, { ...f, msg: !f.msg });
@@ -266,40 +326,37 @@ function computeNextStatut({ racket, bill, msg, ret }) {
   return pickStatus("A REGLER");
 }
 
-async function handlePickPayment(row, modePicked) {
-  // feedback instantané
+async function handlePickPayment(rowsToPay, modePicked) {
+  const rowsArr = Array.isArray(rowsToPay) ? rowsToPay : [rowsToPay];
+  const ids = rowsArr.map(r => r.id).filter(Boolean);
+  if (!ids.length) return;
+
+  // 👉 on prend UNE raquette de référence pour calculer le statut
+  const sampleRow = rowsArr[0];
+
+  // on ferme la popup tout de suite
   setPayDialog(null);
 
   const s = String(modePicked || "").trim();
   const low = s.toLowerCase();
 
-  // --- OFFERT ---
+  // =====================
+  // ====== OFFERT =======
+  // =====================
   if (low.startsWith("off")) {
-    // On pose le paiement "offert" (sans reglement_mode pour respecter le CHECK)
     const patchBase = {
       offert: true,
       reglement_mode: null,
       reglement_date: new Date().toISOString(),
     };
 
-    // calcule le prochain statut "comme si payé"
-    const flags = deriveFlags({ ...row, ...patchBase, reglement_mode: null });
+    const flags = deriveFlags({ ...sampleRow, ...patchBase });
     const nextStatut = computeNextStatut({ ...flags, bill: true });
 
-    // mise à jour en une seule requête
-    let { error } = await supabase
+    const { error } = await supabase
       .from("tournoi_raquettes")
       .update({ ...patchBase, statut_id: nextStatut }, { returning: "minimal" })
-      .eq("id", row.id);
-
-    // fallback si colonne 'offert' n’existe pas
-    if (error && /column\s+offert\s+does not exist|42703/i.test(error.message || "")) {
-      const { offert, ...fallback } = patchBase;
-      ({ error } = await supabase
-        .from("tournoi_raquettes")
-        .update({ ...fallback, statut_id: nextStatut }, { returning: "minimal" })
-        .eq("id", row.id));
-    }
+      .in("id", ids);
 
     if (error) {
       console.error(error);
@@ -307,70 +364,82 @@ async function handlePickPayment(row, modePicked) {
       return;
     }
 
-    // un seul reload, non bloquant
     load();
     return;
   }
 
-    // --- CB / Espèces / Chèque / Virement ---
+  // ===========================
+  // === CB / CHÈQUE / ETC ====
+  // ===========================
   const code = resolvePaymentCodeStrict(s, paymentModes);
   if (!code) {
-    const opts = paymentModes.map(pm => `${pm.label} (${pm.code})`).join(", ");
-    alert(`Mode de règlement inconnu: "${modePicked}". Modes disponibles: ${opts}`);
+    alert(`Mode de règlement inconnu : ${modePicked}`);
     return;
   }
 
-  // ✅ Mapping DB tournoi (CHECK avec accents)
-  const dbMode =
-    code === "Cheque" ? "Chèque" :
-    code; // CB / Especes / Virement restent identiques
+  const dbMode = code === "Cheque" ? "Chèque" : code;
 
   const patch = {
     offert: false,
-    reglement_mode: dbMode,   // ⬅️ ici
+    reglement_mode: dbMode,
     reglement_date: new Date().toISOString(),
   };
 
-  const flags = deriveFlags({ ...row, ...patch });
+  const flags = deriveFlags({ ...sampleRow, ...patch });
   const nextStatut = computeNextStatut({ ...flags, bill: true });
 
   const { error } = await supabase
     .from("tournoi_raquettes")
     .update({ ...patch, statut_id: nextStatut }, { returning: "minimal" })
-    .eq("id", row.id);
+    .in("id", ids);
 
   if (error) {
-    if (String(error.code) === "23514") {
-      const opts = paymentModes.map(pm => pm.code).join(", ");
-      alert(`Mise à jour du règlement refusée (code non autorisé).\nCode envoyé: ${code}\nCodes autorisés: ${opts}`);
-      return;
-    }
     console.error(error);
     alert("Mise à jour du règlement refusée.");
     return;
   }
 
-  // un seul reload, non bloquant
   load();
 }
 
   // Ouvrir la modale paiement automatiquement si nouvelle raquette créée en PAYÉ depuis le form
-  useEffect(() => {
-    const onCreated = async (e) => {
-      if (e?.detail?.tournoi !== tournoiName) return;
-      // recharge puis cherche une ligne PAYE sans mode
-      await load();
-      const latest = (rowsRef.current || [])
-        .filter(r => U(r.statut_id) === "PAYE" && !r.reglement_mode)
-        .sort((a,b) => (+new Date(b.date) || 0) - (+new Date(a.date) || 0) || (Number(b.id)||0)-(Number(a.id)||0))[0];
-      if (latest) setPayDialog({ row: latest });
-    };
-    window.addEventListener("tournoi:raquette:created", onCreated);
-    return () => window.removeEventListener("tournoi:raquette:created", onCreated);
-  }, [tournoiName, load]);
+    useEffect(() => {
+  const onCreated = async (e) => {
+    if (e?.detail?.tournoi !== tournoiName) return;
+
+    await load();
+
+    const ids = Array.isArray(e?.detail?.ids) ? e.detail.ids : null;
+
+    // ✅ cas ajout multiple : on ouvre la popup sur toutes les lignes du lot qui sont PAYE sans mode
+    if (ids && ids.length) {
+      const batch = (rowsRef.current || []).filter(
+        (r) => ids.includes(r.id) && U(r.statut_id) === "PAYE" && !r.reglement_mode
+      );
+      if (batch.length) setPayDialog({ rows: batch });
+      return;
+    }
+
+    // fallback ancien comportement (1 seule ligne)
+    const latest = (rowsRef.current || [])
+      .filter((r) => U(r.statut_id) === "PAYE" && !r.reglement_mode)
+      .sort(
+        (a, b) =>
+          (+new Date(b.date) || 0) - (+new Date(a.date) || 0) ||
+          (Number(b.id) || 0) - (Number(a.id) || 0)
+      )[0];
+
+    if (latest) setPayDialog({ rows: [latest] });
+  };
+
+  window.addEventListener("tournoi:raquette:created", onCreated);
+  return () => window.removeEventListener("tournoi:raquette:created", onCreated);
+}, [tournoiName, load]);
 
   // Gains (inchangés)
   const [showGains, setShowGains] = useState(true);
+  const [ruleGain12Eur, setRuleGain12Eur] = useState(10);
+  const [ruleGain14Eur, setRuleGain14Eur] = useState(11.66);
   const [gainMap, setGainMap] = useState({});
   useEffect(() => {
     let alive = true;
@@ -389,6 +458,21 @@ async function handlePickPayment(row, modePicked) {
     return () => { alive = false; };
   }, []);
 
+  useEffect(() => {
+  let alive = true;
+  (async () => {
+    const [s12, s14] = await Promise.all([
+      supabase.from("app_settings").select("*").eq("key", "fourni_gain_12_cents").maybeSingle(),
+      supabase.from("app_settings").select("*").eq("key", "fourni_gain_14_cents").maybeSingle(),
+    ]);
+    if (!alive) return;
+
+    if (!s12.error) setRuleGain12Eur(Number(s12.data?.value_cents ?? 1000) / 100);
+    if (!s14.error) setRuleGain14Eur(Number(s14.data?.value_cents ?? 1166) / 100);
+  })();
+  return () => { alive = false; };
+}, []);
+
   async function unfreezeGains() {
     if (!confirm("Défiger les gains de ce tournoi et recalculer selon Données ?")) return;
     const { error } = await supabase
@@ -404,8 +488,18 @@ async function handlePickPayment(row, modePicked) {
   const gainsByCordeur = new Map();
   for (const r of doneRows) {
     const cordageLabel = (r.cordage?.cordage || r.cordage_id || "").toString().trim().toUpperCase();
-    const snapshot = Number.isFinite(r.gain_cents) ? r.gain_cents : null;
-    const gainCents = snapshot ?? (gainMap[cordageLabel] ?? 0);
+    const tarif = priceForRow(r);
+    const gainEur = computeGainCordeur({
+  fourni: r.fourni,
+  tarifEur: tarif,
+  ruleGain12Eur,
+  ruleGain14Eur,
+  gainCentsSnapshot: r.gain_cents,
+  gainFromCordageEur: (gainMap[cordageLabel] ?? 0) / 100,
+});
+
+
+    const gainCents = Math.round(gainEur * 100);
     const key = (r.cordeur?.cordeur || r.cordeur_id || "—").toString();
     const prev = gainsByCordeur.get(key) || { cordeur: key, count: 0, eurosCents: 0 };
     prev.count += 1;
@@ -432,6 +526,7 @@ async function handlePickPayment(row, modePicked) {
   {loading && <div className="py-4 text-sm text-gray-600">Chargement…</div>}
 
   {!loading && rows.map((r) => {
+    const busy = exportingId === r.id;
     const isOffert = r.offert === true || /offert/i.test(String(r.reglement_mode || ""));
     const pay = isOffert ? { emoji: "🎁", label: "Offert" } : paymentMeta(r.reglement_mode);
     const tarif = priceForRow ? priceForRow(r) : 0;
@@ -449,9 +544,17 @@ async function handlePickPayment(row, modePicked) {
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="font-semibold text-sm md:text-base truncate">
-                {r.cordage?.cordage || r.cordage_id || "—"} {r.tension ? "• " + r.tension : ""}
-              </div>
+  {r.cordage?.cordage || r.cordage_id || "—"}
+  {r.tension ? ` • ${r.tension}` : ""}
 
+  {/* ✅ Modèle raquette en bleu */}
+  {r.raquette && (
+  <span className="ml-2 inline-flex items-center rounded-lg px-2 py-0.5
+                   text-sm font-semibold text-blue-700 bg-blue-50">
+    {r.raquette}
+  </span>
+)}
+</div>
               {/* Nom • Date • Club • Cordeur */}
               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-gray-700">
                 <span className="truncate">
@@ -471,24 +574,30 @@ async function handlePickPayment(row, modePicked) {
             {/* Actions MOBILE */}
             <div className="flex items-center gap-2 shrink-0 md:hidden">
               {!r.exported ? (
-                <button
-                  type="button"
-                  className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
-                  title="Exporter cette raquette vers le Suivi"
-                  onClick={() => exportOne(r)}
-                >
-                  Exporter
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
-                  title="Ré-exporter cette raquette vers le Suivi"
-                  onClick={() => exportOne(r, { force: true })}
-                >
-                  Ré-exporter&nbsp;?
-                </button>
-              )}
+  <button
+    type="button"
+    disabled={busy}
+    className={`text-xs px-2 py-1 rounded ${
+      busy ? "bg-gray-200 text-gray-600" : "bg-green-100 text-green-700 hover:bg-green-200"
+    }`}
+    title="Exporter cette raquette vers le Suivi"
+    onClick={() => exportOne(r)}
+  >
+    {busy ? "Export…" : "Exporter"}
+  </button>
+) : (
+  <button
+    type="button"
+    disabled={busy}
+    className={`text-xs px-2 py-1 rounded ${
+      busy ? "bg-gray-200 text-gray-600" : "bg-green-100 text-green-700 hover:bg-green-200"
+    }`}
+    title="Ré-exporter cette raquette vers le Suivi"
+    onClick={() => exportOne(r, { force: true })}
+  >
+    {busy ? "Export…" : "Ré-exporter ?"}
+  </button>
+)}
               <button className="icon-btn" title="Éditer" aria-label="Éditer" onClick={() => setEditingRow(r)}>
                 <IconEdit />
               </button>
@@ -508,11 +617,8 @@ async function handlePickPayment(row, modePicked) {
             <button type="button" className={pill(flags.racket)} title="Fait / Pas fait" onClick={() => toggleRacket(r)}>
               <span aria-hidden>🎾</span>
             </button>
-            <button type="button" className={pill(flags.bill)} title="Payé / Non payé" onClick={() => setPayDialog({ row: r })}>
+            <button type="button" className={pill(flags.bill)} title="Payé / Non payé" onClick={() => setPayDialog({ rows: [r] })}>
               <span aria-hidden>💶</span>
-            </button>
-            <button type="button" className={pill(flags.msg)} title="Message envoyé / Non envoyé" onClick={() => toggleMessage(r)}>
-              <span aria-hidden>💬</span>
             </button>
             <button type="button" className={pill(flags.ret)} title="Rendu / Non rendu" onClick={() => toggleReturn(r)}>
               <span aria-hidden>↩️</span>
@@ -522,7 +628,7 @@ async function handlePickPayment(row, modePicked) {
               type="button"
               className="ml-2 inline-flex items-center gap-2 text-sm icon-btn whitespace-nowrap"
               title="Définir / modifier le règlement"
-              onClick={() => setPayDialog({ row: r })}
+              onClick={() => setPayDialog({ rows: [r] })}
             >
               <span className="text-gray-600">Règlement:</span>
               <span className="inline-flex items-center gap-1 whitespace-nowrap">
@@ -535,38 +641,45 @@ async function handlePickPayment(row, modePicked) {
         </div>
 
         {/* Actions DESKTOP */}
-        <div className="ml-3 hidden md:flex items-center gap-2 shrink-0">
-          {!r.exported ? (
-            <button
-              type="button"
-              className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
-              title="Exporter cette raquette vers le Suivi"
-              onClick={() => exportOne(r)}
-            >
-              Exporter
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200"
-              title="Ré-exporter cette raquette vers le Suivi"
-              onClick={() => exportOne(r, { force: true })}
-            >
-              Ré-exporter&nbsp;?
-            </button>
-          )}
-          <button className="icon-btn" title="Éditer" aria-label="Éditer" onClick={() => setEditingRow(r)}>
-            <IconEdit />
-          </button>
-          <button
-            className="icon-btn-red"
-            onClick={() => !locked && remove(r.id)}
-            title="Supprimer"
-            aria-label="Supprimer"
-          >
-            <IconTrash />
-          </button>
-        </div>
+<div className="ml-3 hidden md:flex items-center gap-2 shrink-0">
+  {!r.exported ? (
+    <button
+      type="button"
+      disabled={busy}
+      className={`text-xs px-2 py-1 rounded ${
+        busy ? "bg-gray-200 text-gray-600" : "bg-green-100 text-green-700 hover:bg-green-200"
+      }`}
+      title="Exporter cette raquette vers le Suivi"
+      onClick={() => exportOne(r)}
+    >
+      {busy ? "Export…" : "Exporter"}
+    </button>
+  ) : (
+    <button
+      type="button"
+      disabled={busy}
+      className={`text-xs px-2 py-1 rounded ${
+        busy ? "bg-gray-200 text-gray-600" : "bg-green-100 text-green-700 hover:bg-green-200"
+      }`}
+      title="Ré-exporter cette raquette vers le Suivi"
+      onClick={() => exportOne(r, { force: true })}
+    >
+      {busy ? "Export…" : "Ré-exporter ?"}
+    </button>
+  )}
+
+  <button className="icon-btn" title="Éditer" aria-label="Éditer" onClick={() => setEditingRow(r)}>
+    <IconEdit />
+  </button>
+  <button
+    className="icon-btn-red"
+    onClick={() => !locked && remove(r.id)}
+    title="Supprimer"
+    aria-label="Supprimer"
+  >
+    <IconTrash />
+  </button>
+</div>
       </div>
     );
   })}
@@ -686,13 +799,16 @@ async function handlePickPayment(row, modePicked) {
                 <button
                   key={pm.code}
                   type="button"
-                  onClick={() => handlePickPayment(payDialog.row, pm.code)}
+                  onClick={() => handlePickPayment(payDialog.rows, pm.code)}
                   className="flex items-center justify-center gap-2 h-11 rounded-xl border bg-white hover:bg-gray-50 hover:shadow transition"
                 >
                   <span className="text-lg">{pm.emoji || "💶"}</span>
                   <span className="font-medium">{pm.label}</span>
                 </button>
               ))}
+            </div>
+            <div className="text-sm text-gray-600">
+              Appliquer à <b>{payDialog?.rows?.length || 1}</b> raquette(s)
             </div>
 
             <div className="mt-5 flex justify-end">
@@ -705,6 +821,32 @@ async function handlePickPayment(row, modePicked) {
       )}
 
       {/* Panneau latéral Éditer (même principe que le Suivi) */}
+            {/* ✅ Toast bas-droite */}
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-[3000]">
+          <div className="w-[320px] rounded-2xl border shadow-xl p-4 bg-white">
+            <div className="flex items-start gap-3">
+              <div className="text-xl">
+                {toast.type === "success" ? "✅" : toast.type === "error" ? "❌" : "ℹ️"}
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold">{toast.title}</div>
+                {toast.message && (
+                  <div className="text-sm text-gray-600 mt-0.5">{toast.message}</div>
+                )}
+              </div>
+              <button
+                className="text-gray-400 hover:text-black"
+                onClick={() => setToast(null)}
+                aria-label="Fermer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editingRow && (
         <div className="fixed inset-0 bg-black/30 flex justify-end z-50" onClick={() => setEditingRow(null)}>
           <div className="w-full max-w-xl bg-white h-full p-4 overflow-auto" onClick={(e) => e.stopPropagation()}>
@@ -721,6 +863,51 @@ async function handlePickPayment(row, modePicked) {
           </div>
         </div>
       )}
+            {/* ✅ Modale confirmation "Ajouter toutes au Suivi" */}
+      {confirmAllOpen && (
+  <div className="fixed inset-0 z-[2500] flex items-center justify-center bg-black/40 p-4">
+    <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+      {/* Header */}
+      <div className="p-5 flex items-start gap-3">
+        <div className="text-2xl leading-none">📦</div>
+        <div className="flex-1">
+          <div className="text-lg font-semibold">Ajouter toutes au Suivi ?</div>
+          <div className="text-sm text-gray-600 mt-1">
+            Cela exporte toutes les raquettes non exportées vers le Suivi principal.
+          </div>
+        </div>
+        <button
+          aria-label="Fermer"
+          className="text-gray-400 hover:text-black"
+          onClick={() => setConfirmAllOpen(false)}
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Actions */}
+      <div className="px-5 pb-5 pt-2 flex justify-end gap-2">
+        <button
+          type="button"
+          className="px-4 h-10 rounded-xl border text-gray-700 hover:bg-gray-50"
+          onClick={() => setConfirmAllOpen(false)}
+          disabled={exporting}
+        >
+          Annuler
+        </button>
+
+        <button
+  type="button"
+  className="px-4 h-10 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+  onClick={confirmExportAll}
+  disabled={exporting}
+>
+  {exporting ? "Export…" : "Oui, exporter"}
+</button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }

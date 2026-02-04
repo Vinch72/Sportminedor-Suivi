@@ -13,7 +13,7 @@ const toCents = (v) => {
   const f = parseFloat(s || "0");
   return Math.round(f * 100);
 };
-const fromCents = (c) => (Number(c||0)/100).toFixed(0);
+const fromCents = (c) => (Number(c || 0) / 100).toFixed(2);
 function norm(s){
   return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
 }
@@ -135,6 +135,9 @@ function askConfirm(config, action) {
   const [T_bobineBase_base,      setT_bobineBase_base]      = useState("12");
   const [T_bobineSpec_specific,  setT_bobineSpec_specific]  = useState("14");
   const [T_express, setT_express] = useState("4");
+  const [F_fourni12, setF_fourni12] = useState("10");     // 12€ -> 10€
+  const [F_fourni14, setF_fourni14] = useState("11.66");  // 14€ -> 11,66€
+
 
   const locked = !isDonneesUnlocked();
 
@@ -143,13 +146,16 @@ function askConfirm(config, action) {
     (async () => {
       setLoading(true);
       try {
-        const [c1, c2, c3, c4, c5, c6] = await Promise.all([
+        const [c1, c2, c3, c4, c5, c6, c7, c8] = await Promise.all([
           supabase.from("cordages").select("cordage, Couleur, is_base, gain_cents, gain_magasin_cents").order("cordage"),
           supabase.from("cordeur").select("cordeur, remun_magasin").order("cordeur"),
           supabase.from("statuts").select("statut_id").order("statut_id"),
           supabase.from("tarif_matrix").select("*").order("id"),
           supabase.from("payment_modes").select("*").order("sort_order").order("label"),
           supabase.from("app_settings").select("*").eq("key","express_surcharge_cents").maybeSingle(),
+          supabase.from("app_settings").select("*").eq("key","fourni_gain_12_cents").maybeSingle(),
+          supabase.from("app_settings").select("*").eq("key","fourni_gain_14_cents").maybeSingle(),
+
         ]);
         if (c1.error) throw c1.error;
         if (c2.error) throw c2.error;
@@ -164,7 +170,9 @@ function askConfirm(config, action) {
         setStatuts(c3.data || []);
         setMatrix(c4.data || []);
         setPaymentModes(c5.data || []);
-  
+        if (!c7.error) setF_fourni12(fromCents(c7.data?.value_cents ?? 1000));
+        if (!c8.error) setF_fourni14(fromCents(c8.data?.value_cents ?? 1166));
+
         // initialiser les inputs tarifs depuis la matrice
         // sans bobine (false,false)
         const mSansBase  = c4.data.find(r => r.bobine_base===false && r.bobine_specific===false && r.is_base===true);
@@ -482,6 +490,27 @@ async function saveTarifs() {
       showToast("Erreur", "Express non enregistré (0 ligne modifiée). Vérifie RLS / table app_settings.", "warning");
       return;
     }
+
+    // 1bis) Sauvegarde règles "fourni"
+const { data: f12, error: eF12 } = await supabase
+  .from("app_settings")
+  .upsert({ key: "fourni_gain_12_cents", value_cents: toCents(F_fourni12) })
+  .select("key, value_cents");
+
+if (eF12 || !f12?.length) {
+  showToast("Erreur", "Erreur mise à jour fourni (12€): " + (eF12?.message || "0 ligne"), "warning");
+  return;
+}
+
+const { data: f14, error: eF14 } = await supabase
+  .from("app_settings")
+  .upsert({ key: "fourni_gain_14_cents", value_cents: toCents(F_fourni14) })
+  .select("key, value_cents");
+
+if (eF14 || !f14?.length) {
+  showToast("Erreur", "Erreur mise à jour fourni (14€): " + (eF14?.message || "0 ligne"), "warning");
+  return;
+}
 
     // 2) Maj des tarifs (on force un retour de lignes avec .select())
     const batch = [
@@ -843,6 +872,25 @@ return (
     value={T_express}
     onChange={(e)=>setT_express(e.target.value)}
   />
+  <div className="mt-4 grid sm:grid-cols-2 gap-4">
+  <div>
+    <div className="text-xs text-gray-600 mb-1">Fourni : tarif <b>12€</b> → gain cordeur</div>
+    <input
+      className="input input-bordered w-full text-black bg-white"
+      value={F_fourni12}
+      onChange={(e)=>setF_fourni12(e.target.value)}
+    />
+  </div>
+
+  <div>
+    <div className="text-xs text-gray-600 mb-1">Fourni : tarif <b>14€</b> → gain cordeur</div>
+    <input
+      className="input input-bordered w-full text-black bg-white"
+      value={F_fourni14}
+      onChange={(e)=>setF_fourni14(e.target.value)}
+    />
+  </div>
+</div>
 </div>
 
       <div className="mt-3 flex items-center gap-2">

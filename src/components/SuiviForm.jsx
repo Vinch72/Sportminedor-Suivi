@@ -195,8 +195,18 @@ useEffect(() => {
     const hasSpec = !!clubObj.bobine_specific;
     if (!hasBase && !hasSpec) base = isBase ? 18 : 20;
     else if (hasBase && !hasSpec) base = isBase ? 12 : 20;
-    else if (hasBase && hasSpec) base = isBase ? 12 : 14;
+    else if (hasBase && hasSpec) {
+    // ✅ Exception FABREGUES : bobine spécifique = 12€ (au lieu de 14)
+    const isFabregues =
+      String(clubObj?.clubs || clubId || "")
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        .toUpperCase() === "FABREGUES";
+
+    if (isFabregues && !isBase) base = 12;
+    else base = isBase ? 12 : 14;
   }
+}
 
   // ✅ EXPRESS +4€
 if (base != null && express) base += (expressCents / 100);
@@ -269,16 +279,24 @@ const finalTarif = calcTarif();
       };
 
       if (isEdit) {
-        const { data, error } = await supabase
-          .from("suivi")
-          .update(base)
-          .eq("id", editingId)
-          .select("id");
+  const { data, error } = await supabase
+    .from("suivi")
+    .update(base)
+    .eq("id", editingId)
+    .select("id");
 
-        if (error) throw error;
-        if (!data || data.length !== 1) {
-          throw new Error("Mise à jour incomplète. Vérifie RLS/colonnes.");
-        }
+  if (error) throw error;
+  if (!data || data.length !== 1) {
+    throw new Error("Mise à jour incomplète. Vérifie RLS/colonnes.");
+  }
+
+  // ✅ Force le tarif en base aussi en EDIT (comme à l'insert)
+  const forcedTarif = offert ? 0 : (finalTarif ?? null);
+  await supabase
+    .from("suivi")
+    .update({ tarif: forcedTarif, express: !!express })
+    .eq("id", editingId);
+
       // --- Sauvegarde des préférences client si demandé (EDIT) ---
       try {
         if (savePrefs && clientId) {

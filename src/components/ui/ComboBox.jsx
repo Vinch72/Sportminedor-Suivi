@@ -26,13 +26,14 @@ export default function ComboBox({
     [items, value]
   );
 
-  useEffect(() => {
-    const onClick = (e) => {
-      if (!rootRef.current?.contains(e.target)) setOpen(false);
-    };
-    window.addEventListener("click", onClick);
-    return () => window.removeEventListener("click", onClick);
-  }, []);
+ useEffect(() => {
+  const onDown = (e) => {
+    if (!rootRef.current) return;
+    if (!rootRef.current.contains(e.target)) setOpen(false);
+  };
+  window.addEventListener("mousedown", onDown);
+  return () => window.removeEventListener("mousedown", onDown);
+}, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -51,6 +52,10 @@ export default function ComboBox({
     <div className="relative" ref={rootRef}>
       <div className="flex items-center gap-2">
         <input
+          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setOpen(false);
+          }}
           className="border rounded-md px-3 py-2 w-full"
           placeholder={placeholder}
           value={open ? query : selected?.label || ""}

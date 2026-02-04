@@ -32,6 +32,7 @@
       club_id: "",
       fourni: false,
       offert: false,
+      qty: 1,
     });
 
     useEffect(() => {
@@ -48,18 +49,21 @@
       club_id: initialData.club_id || "",
       fourni: !!initialData.fourni,
       offert: !!initialData.offert,
+      qty: 1,
     });
   }, [editingId, initialData]);
 
+  const [count, setCount] = useState(1);
 
     // ------- Lookups -------
     const loadLookups = async () => {
-      const [c, co, s, cr, cl, tm] = await Promise.all([
+      const [c, co, s, cr, cl, tc, tm] = await Promise.all([
         supabase.from("clients").select("id, nom, prenom, tension, cordage, club").order("nom"),
         supabase.from("cordages").select("cordage, is_base, Couleur").order("cordage"),
         supabase.from("statuts").select("statut_id"),
         supabase.from("cordeur").select("cordeur").order("cordeur"),
         supabase.from("clubs").select("clubs, bobine_base, bobine_specific").order("clubs"),
+        supabase.from("tournoi_cordeurs").select("cordeur").eq("tournoi", tournoiName),
         supabase.from("tarif_matrix").select("*"),
       ]);
       if (c.error) console.error("clients", c.error);
@@ -75,11 +79,19 @@
       setTarifMatrix(tm.data || []);
       setClubs(cl.data || []);
 
-      // filtre cordeurs sur ceux rattachés au tournoi (tolérant casse/espaces)
       const norm = (x) => (x || "").toString().trim().toLowerCase();
-      const allow = new Set((allowedCordeurs || []).map(norm));
-      const all = cr.data || [];
-      setCordeurs(allow.size ? all.filter((x) => allow.has(norm(x.cordeur))) : all);
+
+const tournoiCordeurs = tc?.data || [];
+const allowedSet = new Set(tournoiCordeurs.map(x => norm(x.cordeur)));
+
+if (allowedSet.size === 0) {
+  // aucun cordeur lié au tournoi → on affiche TOUS
+  setCordeurs(cr.data || []);
+} else {
+  setCordeurs(
+    (cr.data || []).filter(c => allowedSet.has(norm(c.cordeur)))
+  );
+}
     };
 
     useEffect(() => {
@@ -122,22 +134,29 @@
     };
 
     // ------- Tarif auto (affiché) -------
+    const U = (s) => String(s || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toUpperCase();
+
     const priceEuros = useMemo(() => {
-      if (form.offert) return 0;
-      if (form.fourni) return 12;
+  if (form.offert) return 0;
+  if (form.fourni) return 12;
 
-      const club = clubs.find((c) => c.clubs === form.club_id);
-      const cordage = cordages.find((co) => co.cordage === form.cordage_id);
-      if (!club || !cordage) return null;
+  const club = clubs.find((c) => c.clubs === form.club_id);
+  const cordage = cordages.find((co) => co.cordage === form.cordage_id);
+  if (!club || !cordage) return null;
 
-      const row = tarifMatrix.find(
-        (r) =>
-          (!!r.bobine_base) === !!club.bobine_base &&
-          (!!r.bobine_specific) === !!club.bobine_specific &&
-          (!!r.is_base) === !!cordage.is_base
-      );
-      return row ? (row.price_cents || 0) / 100 : null;
-    }, [form.offert, form.fourni, form.club_id, form.cordage_id, clubs, cordages, tarifMatrix]);
+  // ✅ FABREGUES : spécifique = 12€
+  if (U(club.clubs) === "FABREGUES" && club.bobine_base && club.bobine_specific && cordage.is_base === false) {
+    return 12;
+  }
+
+  const row = tarifMatrix.find(
+    (r) =>
+      (!!r.bobine_base) === !!club.bobine_base &&
+      (!!r.bobine_specific) === !!club.bobine_specific &&
+      (!!r.is_base) === !!cordage.is_base
+  );
+  return row ? (row.price_cents || 0) / 100 : null;
+}, [form.offert, form.fourni, form.club_id, form.cordage_id, clubs, cordages, tarifMatrix]);
 
     // ------- Submit -------
     const submit = async (e) => {
@@ -160,16 +179,31 @@
           offert: !!form.offert,
           date: dateISO,
         };
-        const { error } = editingId
-    ? await supabase
-        .from("tournoi_raquettes")
-        .update(payload)
-        .eq("id", editingId)
-    : await supabase
-        .from("tournoi_raquettes")
-        .insert(payload);
+        // ... dans submit(), partie "else" (création)
+const qty = Math.max(1, Number(count || 1));
 
-  if (error) throw error;
+const payloads = Array.from({ length: qty }, () => ({
+  tournoi: tournoiName,
+  client_id: form.client_id || null,
+  cordage_id: form.cordage_id || null,
+  tension: form.tension || null,
+  cordeur_id: form.cordeur_id || null,
+  statut_id: form.statut_id || null,
+  raquette: form.raquette || null,
+  club_id: form.club_id || null,
+  fourni: !!form.fourni,
+  offert: !!form.offert,
+  date: dateISO,
+}));
+
+const { data: inserted, error } = await supabase
+  .from("tournoi_raquettes")
+  .insert(payloads)
+  .select("id, statut_id, reglement_mode");
+
+if (error) throw error;
+
+const insertedIds = inserted.map(r => r.id);
 
         // --- Sauvegarde des préférences client si demandé (cordage/tension) ---
         try {
@@ -191,11 +225,14 @@
       console.warn("Maj préférences client (tournoi) ignorée:", e);
     }
 
-        window.dispatchEvent(
-    new CustomEvent(editingId ? "tournoi:raquette:updated" : "tournoi:raquette:created", {
-      detail: { tournoi: tournoiName, id: editingId || null },
-    })
-  );
+       window.dispatchEvent(
+  new CustomEvent("tournoi:raquette:created", {
+    detail: {
+      tournoi: tournoiName,
+      ids: insertedIds, // ⬅️ LE LOT COMPLET
+    },
+  })
+);
 
   if (editingId) {
     if (onDone) await onDone();
@@ -214,6 +251,7 @@
           club_id: "",
           fourni: false,
           offert: false,
+          qty: 1,
         });
       } catch (err) {
         console.error(err);
@@ -236,6 +274,28 @@
     return (
       <form onSubmit={submit} className="bg-white rounded-2xl p-3 border">
         <div className="grid md:grid-cols-3 gap-2">
+          <div>
+  <label className="text-sm">Nombre de raquettes</label>
+  <input
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={count}
+  onChange={(e) => {
+    const v = e.target.value.replace(/\D/g, "");
+    setCount(v === "" ? "" : Math.max(1, Math.min(20, Number(v))));
+  }}
+  onBlur={() => {
+    if (!count || Number(count) < 1) setCount(1);
+  }}
+  placeholder="1"
+  className="w-full h-11 rounded-xl border px-3 text-base text-gray-900 placeholder:text-gray-400"
+/>
+  <div className="text-xs text-gray-500 mt-1">
+    (Duplique la saisie à l’identique)
+  </div>
+</div>
+
           <div>
   <label className="text-sm">Date</label>
   <input

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
 import logo from "../assets/sportminedor-logo.png";
 import MonthlyRevenueChart from "../components/stats/MonthlyRevenueChart.jsx";
+import { computeGainCordeur } from "../utils/computeGainCordeur";
 
 /** ===== Helpers ===== */
 const FR_MONTHS = ["Janv.","Fév.","Mars","Avr.","Mai","Juin","Juil.","Août","Sept.","Oct.","Nov.","Déc."];
@@ -325,7 +326,14 @@ const mapCordageGainMagasin = useMemo(() => {
 
       // Part cordeur (gain_cents figé) + fallback si null
       const fallback = mapCordageGain.get(cordageKey(r.cordage_id || r?.cordage?.cordage)) ?? DEFAULT_GAIN_EUR;
-      const cordeurEur = (r.gain_cents != null) ? (Number(r.gain_cents) / 100) : fallback;
+      const tarif = priceForTournoiRow(r);
+
+      const cordeurEur = computeGainCordeur({
+        fourni: r.fourni,
+        tarifEur: tarif,
+        gainCentsSnapshot: r.gain_cents,
+        gainFromCordageEur: fallback,
+      });
       entry.cordeur += cordeurEur;
 
       byTournoi.set(tName, entry);
@@ -363,7 +371,14 @@ const mapCordageGainMagasin = useMemo(() => {
       const ca = priceForTournoiRow(r);
 
       const fallback = mapCordageGain.get(cordageKey(r.cordage_id || r?.cordage?.cordage)) ?? DEFAULT_GAIN_EUR;
-      const cordeurEur = (r.gain_cents != null) ? (Number(r.gain_cents) / 100) : fallback;
+      const tarif = priceForTournoiRow(r);
+
+      const cordeurEur = computeGainCordeur({
+        fourni: r.fourni,
+        tarifEur: tarif,
+        gainCentsSnapshot: r.gain_cents,
+        gainFromCordageEur: fallback,
+      });
 
       cur.ca += ca;
       cur.cordeur += cordeurEur;
@@ -445,10 +460,14 @@ if (CORDEURS_MAGASIN.has(cordeurName)) {
     const key = cordageKey(label);
 
     // priorité : gain_cents figé sur la ligne tournoi (le plus fiable)
-    const rate =
-      (r.gain_cents != null)
-        ? Number(r.gain_cents) / 100
-        : (mapCordageGain.get(key) ?? null);
+   const tarif = priceForTournoiRow(r);
+
+const rate = computeGainCordeur({
+  fourni: r.fourni,
+  tarifEur: tarif,
+  gainCentsSnapshot: r.gain_cents,
+  gainFromCordageEur: mapCordageGain.get(key),
+});
 
     if (rate == null) continue;
 

@@ -340,6 +340,7 @@ useEffect(() => {
   icon="🎾"
   active={activeQuickFilter === "AFAIRE"}
   onClick={() => toggleQuickFilter("AFAIRE")}
+  showAccent
 />
 
 <Card
@@ -348,6 +349,7 @@ useEffect(() => {
   icon="💶"
   active={activeQuickFilter === "AREGLER"}
   onClick={() => toggleQuickFilter("AREGLER")}
+  showAccent
 />
     <Card title="Cordées (saison)" value={fmt(stats.saisonTotal, loading, err)} icon="✅" />
     <Card title="Cordées (mois)" value={fmt(stats.moisTotal, loading, err)} icon="📅" />
@@ -376,7 +378,7 @@ function fmt(value, loading, err) {
   return typeof value === "number" ? value : "—"; 
 } 
 
-function Card({ title, value, icon, onClick, active }) {
+function Card({ title, value, icon, onClick, active, showAccent }) {
   const clickable = typeof onClick === "function";
   return (
     <div
@@ -399,7 +401,9 @@ function Card({ title, value, icon, onClick, active }) {
       {icon && <div className="text-2xl mb-1">{icon}</div>}
       <div className="text-sm text-gray-500">{title}</div>
       <div className="mt-1 text-3xl font-extrabold tracking-tight">{value}</div>
-      <div className="mt-3 h-1 w-10 mx-auto rounded bg-brand-red" />
+      {showAccent && (
+  <div className="mt-3 h-1 w-10 mx-auto rounded bg-brand-red" />
+)}
     </div>
   );
 }

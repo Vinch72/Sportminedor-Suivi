@@ -61,7 +61,7 @@ function ComboBox({ label, placeholder, value, onChange, options = [] }) {  cons
         className="input input-bordered text-black bg-white placeholder:text-gray-400"
       />
       {open && filtered.length > 0 && (
-        <div className="absolute z-20 top-[100%] left-0 right-0 bg-white border rounded-xl mt-1 max-h-60 overflow-auto shadow">
+        <div className="relative z-20 mt-1 bg-white border rounded-xl max-h-60 overflow-auto shadow">
           {filtered.map((opt, i) => (
             <button
               type="button"
@@ -154,20 +154,6 @@ export function SuiviFilters({
             ))}
           </select>
         </div>
-
-{/* Non payé */}
-<div className="flex flex-col">
-  <label className="text-xs font-medium mb-1">Paiement</label>
-  <button
-    type="button"
-    onClick={() => onChange({ onlyUnpaid: !filters.onlyUnpaid })}
-    className={`h-10 rounded-lg border px-3 text-sm transition
-      ${filters.onlyUnpaid ? "bg-brand-red text-white border-brand-red" : "bg-white text-black border-gray-200 hover:bg-gray-50"}`}
-    title="Afficher uniquement les raquettes non payées"
-  >
-    {filters.onlyUnpaid ? "Non payé ✅" : "Non payé"}
-  </button>
-</div>
 
         {/* Date exacte */}
         <div className="flex flex-col">

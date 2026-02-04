@@ -150,9 +150,9 @@ export default function TournoiList({ onEdit, onOpen, query = "" }) {
 
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
         {filtered.map((t) => (
-          <div key={t.tournoi} className="card">
-            <div className="flex justify-between items-start">
-              <div className="min-w-0">
+          <div key={t.tournoi} className="card min-w-0 w-full">
+            <div className="flex justify-between items-start min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="font-semibold text-black truncate">{t.tournoi}</div>
                 <div className="text-sm text-gray-600">
                   {displayDate(t.start_date)}
