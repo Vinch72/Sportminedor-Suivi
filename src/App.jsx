@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"; 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./utils/supabaseClient"; 
 import SuiviSeasonView from "./components/SuiviSeasonView";
 import BackButton from "./components/BackButton"; // ou "../components/BackButton" 
@@ -148,13 +148,34 @@ function getMonthBounds(today = new Date()) {
 // helpers dates tolérants
 function parseDateLoose(v) {
   if (!v) return null;
-  const d = new Date(v);
-  if (!isNaN(+d)) return d;
-  // "YYYY-MM-DD"
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v));
-  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
-  return null;
+  const s = String(v).trim();
+
+  // 1) DD/MM/YYYY (prioritaire sinon new Date() se trompe)
+  let m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+  if (m) {
+    const [, D, M, Y] = m.map(Number);
+    return new Date(Y, M - 1, D);
+  }
+
+  // 2) YYYY-MM-DD
+  m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (m) {
+    const [, Y, M, D] = m.map(Number);
+    return new Date(Y, M - 1, D);
+  }
+
+  // 3) YYYY-MM-DD HH:mm(:ss)
+  m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(s);
+  if (m) {
+    const [, Y, M, D, h, mi, sec] = m.map(Number);
+    return new Date(Y, M - 1, D, h, mi, sec || 0);
+  }
+
+  // 4) fallback
+  const d = new Date(s);
+  return isNaN(+d) ? null : d;
 }
+
 function addDays(d, n) {
   const x = new Date(d);
   x.setDate(x.getDate() + n);
@@ -188,6 +209,12 @@ const [stats, setStats] = useState({
     moisRevenue: 0, 
 }); 
 
+
+const handleMonthStats = useCallback((s) => {
+  setMonthStats(s);
+}, []);
+
+const [monthStats, setMonthStats] = useState({ count: 0, revenue: 0, monthKey: "" });
 const [presetFilters, setPresetFilters] = useState(null);
 const [activeQuickFilter, setActiveQuickFilter] = useState(null); // "AFAIRE" | "AREGLER" | null
 
@@ -271,7 +298,7 @@ useEffect(() => {
           .select("id", { count: "exact", head: true }) 
           .gte("date", monthStart) 
           .lte("date", monthEnd) 
-          .neq("statut_id", "A FAIRE"); 
+          .in("statut_id", ["A REGLER", "PAYE", "MESSAGE ENVOYE", "RENDU"]); 
           const qARegler = supabase
           .from("suivi")
           .select("id", { count: "exact", head: true })
@@ -285,7 +312,7 @@ useEffect(() => {
           .select("tarif, lieu_id") 
           .gte("date", monthStart) 
           .lte("date", monthEnd) 
-          .neq("statut_id", "A FAIRE"); 
+          .in("statut_id", ["A REGLER", "PAYE", "MESSAGE ENVOYE", "RENDU"]);
         const [saison, aFaire, mois, tarifs, aRegler] = await Promise.all([ 
           qSaison, qAFaire, qMois, qTarifsMois, qARegler 
         ]); 
@@ -352,12 +379,12 @@ useEffect(() => {
   showAccent
 />
     <Card title="Cordées (saison)" value={fmt(stats.saisonTotal, loading, err)} icon="✅" />
-    <Card title="Cordées (mois)" value={fmt(stats.moisTotal, loading, err)} icon="📅" />
+    <Card title="Cordées (mois)" value={loading ? "…" : monthStats.count} icon="📅" />
     <Card
-    title="Revenu (mois)"
-    value={loading ? "…" : err ? "ERR" : euro(stats.moisRevenue)}
-    icon="💰"
-  />
+  title="Revenu (mois)"
+  value={loading ? "…" : euro(monthStats.revenue)}
+  icon="💰"
+/>
 </div>
 </div>
 
@@ -366,7 +393,10 @@ useEffect(() => {
 
  {/* Nouvelle vue Saison → Mois */} 
           <div className="mt-8" data-suivi-list>
-  <SuiviSeasonView presetFilters={presetFilters} />
+  <SuiviSeasonView
+  presetFilters={presetFilters}
+  onMonthStats={handleMonthStats}
+/>
 </div>
       </div> 
     </div> 

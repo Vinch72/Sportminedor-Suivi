@@ -532,7 +532,11 @@ async function openBobineLot(type, batchIndex) {
     } finally {
       setSavingNotes(false);
     }
-  }  
+  }
+
+  function lotRange(start, count) {
+    return Array.from({ length: Math.max(0, count) }, (_, i) => start + i);
+  }
 
   return (
     <div className="p-6">
@@ -763,54 +767,73 @@ async function openBobineLot(type, batchIndex) {
         <div>⏳ En attente : <b>{pendingBase}</b></div>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-3">
+  {/* Lots en attente */}
+  {pendingBase > 0 && (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="text-xs text-gray-500 mr-1">Lots à facturer :</div>
+
+      {lotRange(doneBase, pendingBase).map((batchIdx) => (
         <button
+          key={`base-pending-${batchIdx}`}
           type="button"
-          className="px-3 py-2 rounded-lg border"
-          disabled={pendingBase <= 0}
-          onClick={() => openBobineLot("base", doneBase)}
+          className={[
+            "px-3 py-1.5 rounded-lg border text-sm",
+            bobineUI.open && bobineUI.type === "base" && bobineUI.batchIndex === batchIdx
+              ? "bg-brand-red text-white border-brand-red"
+              : "bg-white hover:bg-gray-50"
+          ].join(" ")}
+          onClick={() => openBobineLot("base", batchIdx)}
         >
-          Voir prochain lot
+          Bobine {batchIdx + 1}
         </button>
+      ))}
+    </div>
+  )}
 
-        {doneBase > 0 && (
-          <details className="w-full mt-2">
-            <summary className="cursor-pointer underline text-sm select-none">
-              Voir l’historique ({doneBase})
-            </summary>
+  {pendingBase <= 0 && (
+    <div className="text-sm text-gray-500 mt-2">Aucun lot base à facturer.</div>
+  )}
 
-            <div className="mt-2 flex flex-col gap-2">
-              {Array.from({ length: doneBase }).map((_, i) => (
-                <div key={`base-lot-${i}`} className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded border text-left"
-                    onClick={() => openBobineLot("base", i)}
-                  >
-                    ✅ Lot #{i + 1}
-                  </button>
+  {/* Historique facturé */}
+  {doneBase > 0 && (
+    <details className="w-full mt-3">
+      <summary className="cursor-pointer underline text-sm select-none">
+        Voir l’historique ({doneBase})
+      </summary>
 
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded border"
-                    onClick={async () => {
-                      const { data, error } = await fetchBobineBatch({
-                        clubName: selected.clubs,
-                        type: "base",
-                        offset: i * 20,
-                      });
-                      if (error) return alert(error.message || "Erreur");
-                      downloadCSV(`club_${selected.clubs}_base_lot${i + 1}.csv`, data || []);
-                    }}
-                  >
-                    CSV
-                  </button>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
+      <div className="mt-2 flex flex-col gap-2">
+        {Array.from({ length: doneBase }).map((_, i) => (
+          <div key={`base-lot-${i}`} className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded border text-left"
+              onClick={() => openBobineLot("base", i)}
+            >
+              ✅ Bobine {i + 1}
+            </button>
+
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded border"
+              onClick={async () => {
+                const { data, error } = await fetchBobineBatch({
+                  clubName: selected.clubs,
+                  type: "base",
+                  offset: i * 20,
+                });
+                if (error) return alert(error.message || "Erreur");
+                downloadCSV(`club_${selected.clubs}_base_lot${i + 1}.csv`, data || []);
+              }}
+            >
+              CSV
+            </button>
+          </div>
+        ))}
       </div>
+    </details>
+  )}
+</div>
     </div>
   )}
 
@@ -823,54 +846,71 @@ async function openBobineLot(type, batchIndex) {
         <div>⏳ En attente : <b>{pendingSpec}</b></div>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-3">
+  {pendingSpec > 0 && (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="text-xs text-gray-500 mr-1">Lots à facturer :</div>
+
+      {lotRange(doneSpec, pendingSpec).map((batchIdx) => (
         <button
+          key={`spec-pending-${batchIdx}`}
           type="button"
-          className="px-3 py-2 rounded-lg border"
-          disabled={pendingSpec <= 0}
-          onClick={() => openBobineLot("specific", doneSpec)}
+          className={[
+            "px-3 py-1.5 rounded-lg border text-sm",
+            bobineUI.open && bobineUI.type === "specific" && bobineUI.batchIndex === batchIdx
+              ? "bg-brand-red text-white border-brand-red"
+              : "bg-white hover:bg-gray-50"
+          ].join(" ")}
+          onClick={() => openBobineLot("specific", batchIdx)}
         >
-          Voir prochain lot
+          Bobine {batchIdx + 1}
         </button>
+      ))}
+    </div>
+  )}
 
-        {doneSpec > 0 && (
-          <details className="w-full mt-2">
-            <summary className="cursor-pointer underline text-sm select-none">
-              Voir l’historique ({doneSpec})
-            </summary>
+  {pendingSpec <= 0 && (
+    <div className="text-sm text-gray-500 mt-2">Aucun lot spécifique à facturer.</div>
+  )}
 
-            <div className="mt-2 flex flex-col gap-2">
-              {Array.from({ length: doneSpec }).map((_, i) => (
-                <div key={`spec-lot-${i}`} className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded border text-left"
-                    onClick={() => openBobineLot("specific", i)}
-                  >
-                    ✅ Lot #{i + 1}
-                  </button>
+  {doneSpec > 0 && (
+    <details className="w-full mt-3">
+      <summary className="cursor-pointer underline text-sm select-none">
+        Voir l’historique ({doneSpec})
+      </summary>
 
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded border"
-                    onClick={async () => {
-                      const { data, error } = await fetchBobineBatch({
-                        clubName: selected.clubs,
-                        type: "specific",
-                        offset: i * 20,
-                      });
-                      if (error) return alert(error.message || "Erreur");
-                      downloadCSV(`club_${selected.clubs}_spec_lot${i + 1}.csv`, data || []);
-                    }}
-                  >
-                    CSV
-                  </button>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
-      </div>
+      <div className="mt-2 flex flex-col gap-2">
+        {Array.from({ length: doneSpec }).map((_, i) => (
+          <div key={`spec-lot-${i}`} className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded border text-left"
+              onClick={() => openBobineLot("specific", i)}
+            >
+              ✅ Bobine {i + 1}
+            </button>
+
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded border"
+              onClick={async () => {
+                const { data, error } = await fetchBobineBatch({
+                  clubName: selected.clubs,
+                  type: "specific",
+                  offset: i * 20,
+                });
+                if (error) return alert(error.message || "Erreur");
+                downloadCSV(`club_${selected.clubs}_spec_lot${i + 1}.csv`, data || []);
+              }}
+            >
+              CSV
+            </button>
+          </div>
+        ))}
+      </div>L
+    </details>
+  )}
+</div>
     </div>
   )}
 
@@ -884,7 +924,7 @@ async function openBobineLot(type, batchIndex) {
   <div className="mt-3">
     <div className="flex items-center justify-between gap-2">
       <div className="text-sm font-semibold">
-        Détail bobine : {bobineUI.type === "base" ? "Base" : "Spécifique"} — Lot #{(bobineUI.batchIndex ?? 0) + 1}
+        Détail bobine : {bobineUI.type === "base" ? "Base" : "Spécifique"} — Bobine {(bobineUI.batchIndex ?? 0) + 1}
       </div>
 
       <div className="flex items-center gap-2">
@@ -893,7 +933,7 @@ async function openBobineLot(type, batchIndex) {
           className="px-3 py-1 rounded border"
           onClick={() => {
             const lot = (bobineUI.batchIndex ?? 0) + 1;
-            downloadCSV(`club_${selected.clubs}_${bobineUI.type}_lot${lot}.csv`, bobineUI.rows);
+            downloadCSV(`club_${selected.clubs}_${bobineUI.type}_Bobine${lot}.csv`, bobineUI.rows);
           }}
           disabled={bobineUI.loading || !bobineUI.rows?.length}
         >

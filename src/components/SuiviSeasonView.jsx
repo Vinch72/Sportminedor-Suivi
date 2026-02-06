@@ -1,5 +1,5 @@
 // src/components/SuiviSeasonView.jsx
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
 import { IconEdit, IconTrash } from "./ui/Icons";
 import SuiviForm from "./SuiviForm";
@@ -186,7 +186,7 @@ function decideStatut(statuts, { racket, bill, msg, ret }) {
 }
 
 // ===== Component =====
-export default function SuiviSeasonView({ presetFilters }) {
+export default function SuiviSeasonView({ presetFilters, onMonthStats }) {
   const [rows, setRows] = useState([]);
   const [statuts, setStatuts] = useState([]);
   const [clients, setClients] = useState([]);
@@ -487,6 +487,26 @@ const indexById = useMemo(() => {
       sansDate
     };
   }, [filteredRows]);
+
+      // ===== Remonte les stats du mois courant (même logique que la liste) =====
+useEffect(() => {
+  const now = new Date();
+  const curS = seasonKeyFromDate(now);
+  const curM = monthKey(now); // "YYYY-MM"
+
+  const season = grouped?.seasons?.find((s) => s.season === curS);
+  const month = season?.months?.find((m) => m.key === curM);
+  const items = month?.items || [];
+
+  // si tu veux "revenu des 28 entrées" => pas seulement payées : sum(tarif) sur items
+  const revenue = items.reduce((sum, r) => sum + parseMoney(r.tarif), 0);
+
+  onMonthStats?.({
+    monthKey: curM,
+    count: items.length,     // = tes 28
+    revenue,                // total des 28
+  });
+}, [grouped, onMonthStats]);
 
   // ===== Actions =====
   async function updateRowStatut(id, newStatut) {
@@ -883,6 +903,68 @@ async function markMessageSent(row) {
     );
   }
 
+function ProgressiveMonthList({ items, isSmall, RowMobile, RowDesktop }) {
+  const STEP = isSmall ? 10 : 20;
+  const [visibleCount, setVisibleCount] = useState(STEP);
+  const scrollerRef = useRef(null);
+  const didAutoFillRef = useRef(false);
+
+  // reset quand on change de mois
+  useEffect(() => {
+    setVisibleCount(STEP);
+    didAutoFillRef.current = false;
+  }, [items, STEP]);
+
+  function onScroll(e) {
+    const el = e.currentTarget;
+    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 120;
+    if (nearBottom) {
+      setVisibleCount((v) => Math.min(v + STEP, items.length));
+    }
+  }
+
+  // Auto-fill 1 seule fois si le container est "trop grand" (évite le blanc)
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (didAutoFillRef.current) return;
+
+    didAutoFillRef.current = true;
+
+    requestAnimationFrame(() => {
+      if (el.scrollHeight <= el.clientHeight + 5 && visibleCount < items.length) {
+        setVisibleCount((v) => Math.min(v + STEP, items.length));
+      }
+    });
+  }, [visibleCount, items.length, STEP]);
+
+  return (
+    <div
+      ref={scrollerRef}
+      className="max-h-[70vh] overflow-y-auto pt-1"
+      onScroll={onScroll}
+    >
+      {items.slice(0, visibleCount).map((r) => (
+        <div key={r.id} className={isSmall ? "mb-3" : "mb-2"}>
+          {isSmall ? <RowMobile r={r} /> : <RowDesktop r={r} />}
+        </div>
+      ))}
+
+      {visibleCount < items.length && (
+        <div className="py-4 text-center">
+          <button
+            type="button"
+            className="px-4 h-9 rounded-lg border bg-white hover:bg-gray-50 text-sm"
+            onClick={() => setVisibleCount((v) => Math.min(v + STEP, items.length))}
+          >
+            Charger plus
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
   // ===== Render =====  
   return (
     <div className="space-y-3">
@@ -998,9 +1080,12 @@ for (const r of done) {
 
                           {/* --- Liste des lignes du mois --- */}
                     <div className={isSmall ? "mt-2 space-y-3" : "mt-2 space-y-2"}>
-                      {items.map((r) =>
-                        isSmall ? <RowMobile key={r.id} r={r} /> : <RowDesktop key={r.id} r={r} />
-                      )}
+                      <ProgressiveMonthList
+                        items={items}
+                        isSmall={isSmall}
+                        RowMobile={RowMobile}
+                        RowDesktop={RowDesktop}
+                      />
                     </div>
                         </>
                       )}

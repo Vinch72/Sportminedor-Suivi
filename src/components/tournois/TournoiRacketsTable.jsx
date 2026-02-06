@@ -543,17 +543,27 @@ async function handlePickPayment(rowsToPay, modePicked) {
           {/* En-tête: titre + actions mobile à droite */}
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="font-semibold text-sm md:text-base truncate">
-  {r.cordage?.cordage || r.cordage_id || "—"}
-  {r.tension ? ` • ${r.tension}` : ""}
+             <div className="font-semibold text-sm md:text-base">
+  {/* Ligne 1 : cordage + tension */}
+  <div className="truncate">
+    {r.cordage?.cordage || r.cordage_id || "—"}
+    {r.tension ? ` • ${r.tension}` : ""}
+    {/* ✅ Desktop : badge à droite */}
+    {r.raquette && (
+      <span className="hidden md:inline-flex ml-2 items-center rounded-lg px-2 py-0.5 text-sm font-semibold text-blue-700 bg-blue-50">
+        {r.raquette}
+      </span>
+    )}
+  </div>
 
-  {/* ✅ Modèle raquette en bleu */}
+  {/* ✅ Mobile : modèle en dessous */}
   {r.raquette && (
-  <span className="ml-2 inline-flex items-center rounded-lg px-2 py-0.5
-                   text-sm font-semibold text-blue-700 bg-blue-50">
-    {r.raquette}
-  </span>
-)}
+    <div className="mt-1 md:hidden">
+      <span className="inline-flex max-w-full items-center rounded-lg px-2 py-0.5 text-sm font-semibold text-blue-700 bg-blue-50">
+        <span className="truncate">{r.raquette}</span>
+      </span>
+    </div>
+  )}
 </div>
               {/* Nom • Date • Club • Cordeur */}
               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-gray-700">

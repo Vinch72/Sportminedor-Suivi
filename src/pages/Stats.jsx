@@ -8,6 +8,15 @@ import { computeGainCordeur } from "../utils/computeGainCordeur";
 /** ===== Helpers ===== */
 const FR_MONTHS = ["Janv.","Fév.","Mars","Avr.","Mai","Juin","Juil.","Août","Sept.","Oct.","Nov.","Déc."];
 
+function dateISO(d){
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function rowISODate(v){
+  if (!v) return "";
+  // si c’est déjà "YYYY-MM-DD" ou "YYYY-MM-DDTHH..."
+  return String(v).slice(0, 10);
+}
+
 function pad2(n){ return String(n).padStart(2,"0"); }
 function monthKey(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`; }
 function monthLabel(ym){ const [y,m]=ym.split("-").map(Number); return `${FR_MONTHS[(m-1+12)%12]} ${y}`; }
@@ -15,17 +24,21 @@ function monthLabel(ym){ const [y,m]=ym.split("-").map(Number); return `${FR_MON
 function getSeasonBounds(today=new Date()){
   const y=today.getFullYear(), m=today.getMonth(); // 0=janv
   const startYear = m>=8 ? y : y-1;
-  const start = new Date(startYear, 8, 1);                // 1 sept startYear
-  const end   = new Date(startYear+1, 7, 31, 23,59,59,999); // 31 août (inclus)
-  const iso = (d)=>d.toISOString().slice(0,10);
-  return { start, end, startISO: iso(start), endISO: iso(end) };
+
+  const start = new Date(startYear, 8, 1);                 // 1 sept
+  const end   = new Date(startYear+1, 7, 31, 23,59,59,999); // 31 août inclus
+
+  return { start, end, startISO: dateISO(start), endISO: dateISO(end) };
 }
+
 function getMonthBounds(today=new Date()){
   const y=today.getFullYear(), m=today.getMonth();
-  const start=new Date(y,m,1), end=new Date(y,m+1,0,23,59,59,999);
-  const iso=(d)=>d.toISOString().slice(0,10);
-  return { start, end, startISO: iso(start), endISO: iso(end) };
+  const start=new Date(y,m,1);
+  const end=new Date(y,m+1,0,23,59,59,999);
+
+  return { start, end, startISO: dateISO(start), endISO: dateISO(end) };
 }
+
 const norm = (s)=> (s||"").normalize("NFD").replace(/\p{Diacritic}/gu,"").toUpperCase();
 const isDone = (statut)=> norm(statut)!=="A FAIRE";
 const euro = (n)=> `${(Number(n)||0).toLocaleString("fr-FR",{minimumFractionDigits:0, maximumFractionDigits:2})} €`;
@@ -115,9 +128,20 @@ export default function Stats(){
   const [tournois, setTournois] = useState([]);       // liste tournois (meta)
   const [tarifMatrix, setTarifMatrix] = useState([]); // tarif_matrix (pour calcul CA tournois)
   const [openTournois, setOpenTournois] = useState(() => new Set());
+  const [showAllClubs, setShowAllClubs] = useState(false);
+  const [showAllTournois, setShowAllTournois] = useState(false);
 
   const { start, end, startISO, endISO } = useMemo(()=>getSeasonBounds(new Date()),[]);
   const { startISO: monthStartISO, endISO: monthEndISO } = useMemo(()=>getMonthBounds(new Date()),[]);
+
+  const mapTournoiStart = useMemo(() => {
+  const m = new Map();
+  (tournois || []).forEach((t) => {
+    const d = t.start_date || t.end_date || null;
+    m.set(t.tournoi, d);
+  });
+  return m;
+}, [tournois]);
 
   // ===== Load =====
   useEffect(()=>{
@@ -300,66 +324,71 @@ const mapCordageGainMagasin = useMemo(() => {
   }, [seasonDone, tournoiFingerprintSet]);
 
   // Stats par tournoi (tableau principal demandé)
-  const tournoiStats = useMemo(() => {
-    const byTournoi = new Map();
+ const tournoiStats = useMemo(() => {
+  const byTournoi = new Map();
 
-    for (const r of tournoiDone) {
-      const tName = r.tournoi || "—";
-      const entry =
-        byTournoi.get(tName) || {
-          tournoi: tName,
-          clubs: new Map(), // club -> count
-          totalCount: 0,
-          ca: 0, // total encaissé
-          cordeur: 0, // part cordeur
-          magasin: 0, // ca - cordeur
-        };
-
-      // club + count
-      const clubLabel = mapClub.get(r.club_id) || r.club_id || "—";
-      entry.clubs.set(clubLabel, (entry.clubs.get(clubLabel) || 0) + 1);
-      entry.totalCount += 1;
-
-      // CA (tarif)
-      const price = priceForTournoiRow(r);
-      entry.ca += price;
-
-      // Part cordeur (gain_cents figé) + fallback si null
-      const fallback = mapCordageGain.get(cordageKey(r.cordage_id || r?.cordage?.cordage)) ?? DEFAULT_GAIN_EUR;
-      const tarif = priceForTournoiRow(r);
-
-      const cordeurEur = computeGainCordeur({
-        fourni: r.fourni,
-        tarifEur: tarif,
-        gainCentsSnapshot: r.gain_cents,
-        gainFromCordageEur: fallback,
-      });
-      entry.cordeur += cordeurEur;
-
-      byTournoi.set(tName, entry);
-    }
-
-    const arr = Array.from(byTournoi.values()).map((t) => {
-      const clubsArr = Array.from(t.clubs.entries())
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .map(([club, n]) => ({ club, n }));
-
-      const magasin = t.ca - t.cordeur;
-
-      return {
-        tournoi: t.tournoi,
-        clubsArr,
-        totalCount: t.totalCount,
-        ca: t.ca,
-        cordeur: t.cordeur,
-        magasin,
+  for (const r of tournoiDone) {
+    const tName = r.tournoi || "—";
+    const entry =
+      byTournoi.get(tName) || {
+        tournoi: tName,
+        clubs: new Map(),
+        totalCount: 0,
+        ca: 0,
+        cordeur: 0,
       };
+
+    const clubLabel = mapClub.get(r.club_id) || r.club_id || "—";
+    entry.clubs.set(clubLabel, (entry.clubs.get(clubLabel) || 0) + 1);
+    entry.totalCount += 1;
+
+    const price = priceForTournoiRow(r);
+    entry.ca += price;
+
+    const fallback =
+      mapCordageGain.get(cordageKey(r.cordage_id || r?.cordage?.cordage)) ??
+      DEFAULT_GAIN_EUR;
+
+    const tarif = priceForTournoiRow(r);
+
+    const cordeurEur = computeGainCordeur({
+      fourni: r.fourni,
+      tarifEur: tarif,
+      gainCentsSnapshot: r.gain_cents,
+      gainFromCordageEur: fallback,
     });
 
-    // tri : plus gros CA en haut
-    arr.sort((a, b) => b.ca - a.ca || b.totalCount - a.totalCount || a.tournoi.localeCompare(b.tournoi));
-    return arr;
-  }, [tournoiDone, mapClub, mapCordageGain, clubs, tarifMatrix]);
+    entry.cordeur += cordeurEur;
+
+    byTournoi.set(tName, entry);
+  }
+
+  const arr = Array.from(byTournoi.values()).map((t) => {
+    const clubsArr = Array.from(t.clubs.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([club, n]) => ({ club, n }));
+
+    return {
+      tournoi: t.tournoi,
+      start_date: mapTournoiStart.get(t.tournoi) || null,
+      clubsArr,
+      totalCount: t.totalCount,
+      ca: t.ca,
+      cordeur: t.cordeur,
+    };
+  });
+
+  // ✅ tri par date (récent -> ancien)
+  arr.sort((a, b) => {
+    const da = a.start_date ? new Date(a.start_date).getTime() : 0;
+    const db = b.start_date ? new Date(b.start_date).getTime() : 0;
+    return db - da;
+  });
+
+  return arr;
+}, [tournoiDone, mapClub, mapCordageGain, clubs, tarifMatrix, mapTournoiStart]);
+
+const tournoiStatsToShow = showAllTournois ? tournoiStats : tournoiStats.slice(0, 5);
 
   // Totaux stand par mois (pour le tableau "Magasin / Tournois / Total")
   const tournoiByMonth = useMemo(() => {
@@ -507,11 +536,13 @@ out.set(mk, {
 }, [seasonDoneMagasin, tournoiDone, mapCordage, mapCordageMargin, mapCordageGain, mapCordageGainMagasin, mapCordeur]);
 
   // ===== Dérivés =====
-  const monthDone  = useMemo(()=> rows.filter(r=>{
+ const monthDone = useMemo(() => {
+  return rows.filter((r) => {
     if (!isDone(r.statut_id)) return false;
-    const d = new Date(r.date);
-    return d>=new Date(monthStartISO) && d<=new Date(monthEndISO);
-  }), [rows, monthStartISO, monthEndISO]);
+    const d = rowISODate(r.date);
+    return d >= monthStartISO && d <= monthEndISO;
+  });
+}, [rows, monthStartISO, monthEndISO]);
 
   // Encadré 1 — total saison
   const totalSeasonCount = seasonDone.length;
@@ -553,8 +584,10 @@ out.set(mk, {
     return Array.from(m.values()).sort((a,b)=> b.euros-a.euros || b.count-a.count || a.club.localeCompare(b.club));
   },[seasonDone, mapClub]);
 
+  const byClubToShow = showAllClubs ? byClub : byClub.slice(0, 5);
+
   // Encadré — rémunération magasin par mois (6€/raquette, cordeurs autorisés)
-  const remunByMonthCordeur = useMemo(() => {
+const remunByMonthCordeur = useMemo(() => {
   // mois de la saison, dans l'ordre
   const months = [];
   const cur = new Date(start);
@@ -576,23 +609,32 @@ out.set(mk, {
 
     let gain;
 
-    // ✅ Cas POSE : dépend du tarif 12/14
+    // Cas POSE : dépend du tarif 12/14
     if (canon(r.cordage_id).includes("POSE")) {
-      const t = parseMoney(r.tarif); // important: parseMoney gère "14 €", "14", etc.
+      const t = parseMoney(r.tarif);
       if (Math.abs(t - 14) < 0.01) gain = 5.83;
       else if (Math.abs(t - 12) < 0.01) gain = 5.00;
       else gain = DEFAULT_GAIN_EUR;
     } else {
-      // ✅ Tous les autres cordages : mapping + fallback 6€
-      gain = gainForCordage(r.cordage_id); // fallback = DEFAULT_GAIN_EUR
+      gain = gainForCordage(r.cordage_id);
     }
 
-    // ✅ C’EST ÇA QUI MANQUAIT : on ajoute le gain à la table
     table[mk][name] = (table[mk][name] || 0) + gain;
   }
 
   return { months, table };
 }, [seasonDone, start, end, mapCordeur]);
+
+const remunMonthsToShow = useMemo(() => {
+  const months = remunByMonthCordeur.months || [];
+  const table = remunByMonthCordeur.table || {};
+
+  return months.filter((mk) => {
+    const row = table[mk] || {};
+    const total = Object.values(row).reduce((a, x) => a + (Number(x) || 0), 0);
+    return total > 0.0001; // garde uniquement les mois avec du montant
+  });
+}, [remunByMonthCordeur]);
 
   // Tableau — gains (€) par mois (évolution) + total saison
   const revenueByMonth = useMemo(()=>{
@@ -623,6 +665,22 @@ out.set(mk, {
   }, [seasonDoneMagasin]);
 
   const totalMagasin = seasonDoneMagasin.length;
+
+  const monthsComparatifToShow = useMemo(() => {
+  const eps = 0.0001;
+
+  return (revenueByMonth.rows || []).filter((r) => {
+    const calc = margeVsTournoiByMonth.get(r.month);
+    if (!calc) return false;
+
+    const brutMagasin = calc.magasinTotal || 0;
+    const payout = calc.payoutTotal || 0;
+    const tournoi = calc.tournoiTotal || 0;
+
+    // On garde uniquement si un des 3 a une valeur
+    return Math.abs(brutMagasin) > eps || Math.abs(payout) > eps || Math.abs(tournoi) > eps;
+  });
+}, [revenueByMonth.rows, margeVsTournoiByMonth]);
 
   return (
     <div className="min-h-screen bg-brand-gray py-8 px-4">
@@ -709,6 +767,17 @@ out.set(mk, {
       <div className="mt-6 card">
         <div className="text-sm text-gray-600 mb-2">Par club (saison)</div>
         <div className="overflow-auto">
+        {byClub.length > 5 && (
+  <div className="mt-3 flex justify-center">
+    <button
+      type="button"
+      className="px-4 h-10 rounded-xl border hover:bg-gray-50"
+      onClick={() => setShowAllClubs((v) => !v)}
+    >
+      {showAllClubs ? "Réduire" : `Afficher tout (${byClub.length})`}
+    </button>
+  </div>
+)}
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left border-b">
@@ -718,7 +787,7 @@ out.set(mk, {
               </tr>
             </thead>
             <tbody>
-              {byClub.map((r)=>(
+              {byClubToShow.map((r)=>(
                 <tr key={r.club} className="border-b last:border-0">
                   <td className="py-2 pr-4">{r.club}</td>
                   <td className="py-2 pr-4 font-medium">{r.count}</td>
@@ -742,8 +811,18 @@ out.set(mk, {
       <div className="mt-6 card">
         <div className="text-sm text-gray-600 mb-2">
           Raquettes par tournoi • clubs • CA • part cordeur • gain magasin
-        </div>
-
+        </div>  
+  {tournoiStats.length > 5 && (
+    <div className="mt-3 flex justify-center">
+      <button
+        type="button"
+        className="px-4 h-10 rounded-xl border hover:bg-gray-50"
+        onClick={() => setShowAllTournois(v => !v)}
+      >
+        {showAllTournois ? "Réduire" : `Afficher tout (${tournoiStats.length})`}
+      </button>
+    </div>
+  )}
         <div className="overflow-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -756,7 +835,7 @@ out.set(mk, {
               </tr>
             </thead>
             <tbody>
-  {tournoiStats.map((t) => {
+  {tournoiStatsToShow.map((t) => {
     const isOpen = openTournois.has(t.tournoi);
 
     return (
@@ -858,7 +937,7 @@ out.set(mk, {
               </tr>
             </thead>
             <tbody>
-              {remunByMonthCordeur.months.map(mk=>{
+              {remunMonthsToShow.map(mk => {
                 const row = remunByMonthCordeur.table[mk] || {};
                 const total = Object.values(row).reduce((a,x)=>a+(x||0),0);
                 return (
@@ -897,7 +976,7 @@ out.set(mk, {
               </tr>
             </thead>
             <tbody>
-              {revenueByMonth.rows.map((r) => {
+              {monthsComparatifToShow.map((r) => {
                const calc = margeVsTournoiByMonth.get(r.month) || {
   magasinTotal: 0, magasinItems: [],
   tournoiTotal: 0, tournoiItems: [],

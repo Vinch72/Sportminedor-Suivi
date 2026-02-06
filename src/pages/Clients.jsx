@@ -58,8 +58,11 @@ export default function Clients() {
   const [clubs, setClubs] = useState([]);
   const [cordages, setCordages] = useState([]);
 
+  const STEP = 36; // 36 cartes d’un coup
+  const [visibleCount, setVisibleCount] = useState(STEP);
+
   // modal de suppression
-const [deleteDialog, setDeleteDialog] = useState(null); // { id, nom, prenom, cordage, tension, club }
+  const [deleteDialog, setDeleteDialog] = useState(null); // { id, nom, prenom, cordage, tension, club }
 
   // formulaire (création / édition)
   const [editingId, setEditingId] = useState(null);
@@ -78,7 +81,12 @@ const [deleteDialog, setDeleteDialog] = useState(null); // { id, nom, prenom, co
   const [err, setErr] = useState("");
 
   // recherche
-const [query, setQuery] = useState("");
+  const [queryInput, setQueryInput] = useState("");
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+  setVisibleCount(STEP);
+}, [query]);
 
   // modal détail + notes
   const [selected, setSelected] = useState(null);
@@ -107,6 +115,11 @@ const [query, setQuery] = useState("");
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+  const t = setTimeout(() => setQuery(queryInput), 150); // 150-250ms = bien
+  return () => clearTimeout(t);
+}, [queryInput]);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -148,7 +161,11 @@ const [query, setQuery] = useState("");
   
     return sortByNomPrenom(out);
   }, [clients, query]);
-  
+
+  const visibleClients = useMemo(
+  () => filteredClients.slice(0, visibleCount),
+  [filteredClients, visibleCount]
+);  
   
   function resetForm() {
     setEditingId(null);
@@ -248,20 +265,6 @@ const [query, setQuery] = useState("");
   function onDeleteClient(c) {
     // ouvre la modale "supprimer"
     setDeleteDialog(c);
-  }
-  
-  async function reallyDeleteClient() {
-    if (!deleteDialog) return setDeleteDialog(null);
-    const id = deleteDialog.id;
-    const { error } = await supabase.from("clients").delete().eq("id", id);
-    if (error) {
-      alert("Suppression refusée (RLS ?)");
-      return;
-    }
-    setClients(prev => sortByNomPrenom(prev.filter(x => x.id !== id)));
-    if (selected?.id === id) setSelected(null);
-    window.dispatchEvent(new CustomEvent("clients:updated", { detail: { id }}));
-    setDeleteDialog(null);
   }
   
   async function saveNotes() {
@@ -372,8 +375,8 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
 
     <input
       type="text"
-      value={query}
-      onChange={(e) => setQuery(e.target.value)}
+      value={queryInput}
+      onChange={(e) => setQueryInput(e.target.value)}
       placeholder="Nom, prénom, club, téléphone ou email…"
       className="w-full h-11 pl-10 pr-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-red"
     />
@@ -388,66 +391,100 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
         ) : filteredClients.length === 0 ? (
           <div className="text-gray-500">Aucun résultat.</div>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredClients.map(c => (
-              <li key={c.id}>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => { setSelected(c); setNotesDraft(c.notes ?? ""); }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setSelected(c);
-                      setNotesDraft(c.notes ?? "");
-                    }
-                  }}
-                  className="w-full text-left bg-white border border-gray-200 rounded-2xl shadow-card p-4 hover:shadow hover:cursor-pointer"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-semibold text-brand-dark">{[c.prenom, c.nom].filter(Boolean).join(" ")}</div>
-                      <div className="text-sm text-gray-500">
-                        {c.cordage ? c.cordage : "—"} {c.tension ? `• ${c.tension}` : ""}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        title="Modifier"
-                        onClick={(e) => { e.stopPropagation(); fillFormFromClient(c); }}
-                        className="p-2 rounded-full hover:bg-gray-100 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                      >
-                        <IconEdit />
-                      </button>
-                      <button
-                        type="button"
-                        title="Supprimer"
-                        onClick={(e) => { e.stopPropagation(); onDeleteClient(c); }}
-                        className="p-2 rounded-full hover:bg-red-100 text-red-600 focus:outline-none focus:ring-2 focus:ring-red-300"
-                      >
-                        <IconTrash />
-                      </button>
-                    </div>
-                  </div>
-                  {(c.club || c.phone || c.email) && (
-                    <div className="mt-2 text-xs text-gray-500">
-                      {c.club ? `Club: ${c.club}` : ""}
-                      {c.phone ? ` · Tel: ${c.phone}` : ""}
-                      {c.email ? ` · Email: ${c.email}` : ""}
-                    </div>
-                  )}
-                  {c.notes && (
-                    <div className="mt-2 text-xs text-gray-600">
-                      📝 {notePreview(c.notes)}
-                    </div>
-                  )}
+  <>
+    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {visibleClients.map((c) => (
+        <li key={c.id}>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              setSelected(c);
+              setNotesDraft(c.notes ?? "");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSelected(c);
+                setNotesDraft(c.notes ?? "");
+              }
+            }}
+            className="w-full text-left bg-white border border-gray-200 rounded-2xl shadow-card p-4 hover:shadow hover:cursor-pointer"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="font-semibold text-brand-dark">
+                  {[c.prenom, c.nom].filter(Boolean).join(" ")}
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                <div className="text-sm text-gray-500">
+                  {c.cordage ? c.cordage : "—"}
+                  {c.tension ? ` • ${c.tension}` : ""}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  title="Modifier"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fillFormFromClient(c);
+                  }}
+                  className="p-2 rounded-full hover:bg-gray-100"
+                >
+                  <IconEdit />
+                </button>
+
+                <button
+                  type="button"
+                  title="Supprimer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteClient(c);
+                  }}
+                  className="p-2 rounded-full hover:bg-red-100 text-red-600"
+                >
+                  <IconTrash />
+                </button>
+              </div>
+            </div>
+
+            {(c.club || c.phone || c.email) && (
+              <div className="mt-2 text-xs text-gray-500">
+                {c.club ? `Club: ${c.club}` : ""}
+                {c.phone ? ` · Tel: ${c.phone}` : ""}
+                {c.email ? ` · Email: ${c.email}` : ""}
+              </div>
+            )}
+
+            {c.notes && (
+              <div className="mt-2 text-xs text-gray-600">
+                📝 {notePreview(c.notes)}
+              </div>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+
+    {filteredClients.length > visibleCount && (
+      <div className="mt-4 flex justify-center">
+        <button
+          type="button"
+          className="px-4 h-10 rounded-xl border bg-white hover:bg-gray-50 text-sm"
+          onClick={() =>
+            setVisibleCount((v) =>
+              Math.min(v + STEP, filteredClients.length)
+            )
+          }
+        >
+          Charger plus ({visibleCount}/{filteredClients.length})
+        </button>
       </div>
+    )}
+  </>
+)}
+</div>
 
       {/* Popup détail + notes */}
       {selected && (
