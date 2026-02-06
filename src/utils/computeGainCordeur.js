@@ -6,7 +6,7 @@ export function computeGainCordeur({
   gainFromCordageEur,
   ruleGain12Eur = 10,
   ruleGain14Eur = 11.66,
-  ruleOffertEur = 11,  // ✅ AJOUT (optionnel)
+  ruleOffertEur = 10,  // ✅ AJOUT (optionnel)
 }) {
   // 1) Snapshot figé (tournoi verrouillé)
   if (Number.isFinite(gainCentsSnapshot)) {
