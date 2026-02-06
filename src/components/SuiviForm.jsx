@@ -61,6 +61,15 @@ export default function SuiviForm({ editingId, initialData, onDone, onTitleChang
   const [offert, setOffert] = useState(false);
   const [askPay, setAskPay] = useState(null); // { ids: number[] } ou null
 
+  // 🔹 Lieu par défaut = "Magasin"
+useEffect(() => {
+  if (lieu) return;                 // ne pas écraser un choix existant
+  if (!tournois || !tournois.length) return;
+
+  const mag = tournois.find(t => U(t.tournoi) === "MAGASIN");
+  if (mag) setLieu(mag.tournoi);
+}, [tournois, lieu]);
+
   // Informe le parent pour afficher "🎾 {raquette}" dans le titre
 useEffect(() => {
   if (typeof onTitleChange === "function") {
@@ -152,17 +161,22 @@ useEffect(() => {
   }, []);
 
   // Auto-remplir club/tension/cordage quand le client change (sans écraser ce qui existe déjà)
+const [lastClientId, setLastClientId] = useState(null);
+
 useEffect(() => {
   const c = clients.find(x => x.id === clientId);
   if (!c) return;
 
-  if (!clubId && c.club) setClubId(c.club);
-  if (!tension && c.tension) setTension(c.tension);
-  if (!cordageId && c.cordage) setCordageId(c.cordage);
+  // Ne fait l'auto-fill que si on vient de changer de client
+  if (clientId !== lastClientId) {
+    if (!clubId && c.club) setClubId(c.club);
+    if (!tension && c.tension) setTension(c.tension);
+    if (!cordageId && c.cordage) setCordageId(c.cordage);
+    if (!phone && c.phone) setPhone(c.phone);
 
-  // ✅ Téléphone (pré-rempli)
-  if (!phone && c.phone) setPhone(c.phone);
-}, [clientId, clients, clubId, tension, cordageId, phone]);
+    setLastClientId(clientId);
+  }
+}, [clientId, clients, lastClientId, clubId, tension, cordageId, phone]);
 
   // helpers labels + calcul tarif
   const clientsMap = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients]);

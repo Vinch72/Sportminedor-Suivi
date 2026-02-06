@@ -5,6 +5,7 @@ import { IconEdit, IconTrash } from "./ui/Icons";
 import SuiviForm from "./SuiviForm";
 import { SuiviFilters } from "../components/SuiviFilters";
 import useIsSmall from "../hooks/useIsSmall"; // < 768px = mobile
+import { computeGainMagasinCents } from "../utils/gains";
 
 // ===== Helpers =====
 const FR_MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -27,7 +28,7 @@ const parseDateLoose = (v) => {
   return null;
 };
 const U = (s) => String(s || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toUpperCase();
-const DEFAULT_GAIN_EUR = 6;
+const isMagasin = (v) => U(v) === "MAGASIN";
 
 const canon = (s) =>
   (s || "")
@@ -45,21 +46,6 @@ const cordageKey = (s) => {
   );
   return m ? m[1] : c;
 };
-
-// ⚠️ Pour POSE, on déduit 12/14 depuis r.tarif
-function gainMagasinForRow(r, mapCordageGain) {
-  const cord = canon(r.cordage_id);
-
-  if (cord.includes("POSE")) {
-    const t = Number(r.tarif) || parseMoney(r.tarif);
-    if (Math.abs(t - 14) < 0.01) return 5.83;
-    if (Math.abs(t - 12) < 0.01) return 5.00;
-    return DEFAULT_GAIN_EUR;
-  }
-
-  return mapCordageGain.get(cordageKey(r.cordage_id)) ?? DEFAULT_GAIN_EUR;
-}
-const isMagasin = (v) => U(v) === "MAGASIN";
 
 // --- Couleurs cordage -> teinte CSS (FR + variantes courantes) ---
 const COLOR_MAP = {
@@ -350,12 +336,11 @@ useEffect(() => {
   }, [load]);
 
   // lookups
-const mapCordageGainMagasin = useMemo(() => {
-  const m = new Map();
+const cordagesById = useMemo(() => {
+  const m = {};
   (cordages || []).forEach((c) => {
-    const key = cordageKey(c.cordage);
-    const eur = c.gain_magasin_cents != null ? Number(c.gain_magasin_cents) / 100 : null;
-    if (key && eur != null) m.set(key, eur);
+    // clé = valeur exacte cordage stockée en suivi.cordage_id
+    m[c.cordage] = c;
   });
   return m;
 }, [cordages]);
@@ -1031,8 +1016,8 @@ for (const r of done) {
 
   if (!estMagasin || !eligible) continue;
 
-  const gain = gainMagasinForRow(r, mapCordageGainMagasin);
-  gainsByCordeur[nom] = (gainsByCordeur[nom] || 0) + gain;
+  const gainCents = computeGainMagasinCents(r, cordagesById);
+  gainsByCordeur[nom] = (gainsByCordeur[nom] || 0) + gainCents;
 }
 
   return (
@@ -1063,7 +1048,7 @@ for (const r of done) {
         .map(([k, v]) => (
           <li key={k} className="flex justify-between">
             <span>{k}</span>
-            <b>{euro(v)}</b>
+            <b>{euro(v / 100)}</b>
           </li>
         ))}
     </ul>

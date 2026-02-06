@@ -211,6 +211,7 @@ export default function TournoiDetailModal({ tournoi, onClose }) {
 const flags = clubFlagsForRow(r);
 
 const gainEur = computeGainCordeur({
+  offert: !!r.offert,        // ✅ AJOUT
   fourni: !!r.fourni,
   tarifEur: tarif,
 
@@ -219,6 +220,9 @@ const gainEur = computeGainCordeur({
 
   gainCentsSnapshot: null,
   gainFromCordageEur: (gainMap.get(key) ?? 0) / 100,
+
+  ruleGain12Eur: fourni12GainEur,  // ✅ AJOUT (tu l'as déjà calculé)
+  ruleGain14Eur: fourni14GainEur,  // ✅ AJOUT
 });
 
             const cents = Math.round(gainEur * 100);

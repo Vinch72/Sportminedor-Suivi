@@ -487,9 +487,11 @@ async function handlePickPayment(rowsToPay, modePicked) {
   const doneRows = (rows || []).filter(r => U(r.statut_id) !== "A FAIRE");
   const gainsByCordeur = new Map();
   for (const r of doneRows) {
+    const isOffert = r.offert === true || /offert/i.test(String(r.reglement_mode || ""));
     const cordageLabel = (r.cordage?.cordage || r.cordage_id || "").toString().trim().toUpperCase();
     const tarif = priceForRow(r);
     const gainEur = computeGainCordeur({
+  offert: isOffert,
   fourni: r.fourni,
   tarifEur: tarif,
   ruleGain12Eur,

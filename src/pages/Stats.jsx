@@ -78,25 +78,48 @@ const cordageKey = (s) => {
 
 const isMagasin = (v) => canon(v) === "MAGASIN";
 
-function gainForCordage(cordageId) {
-  const c = canon(cordageId);
+function canonMode(m) {
+  if (!m) return null;
+  const s = String(m).normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  if (s.includes("cb") || s.includes("carte")) return "CB";
+  if (s.startsWith("esp")) return "Especes";
+  if (s.startsWith("cheq")) return "Cheque";
+  if (s.startsWith("vir")) return "Virement";
+  if (s.includes("offert") || s.includes("gratuit")) return "Offert";
+  return m;
+}
 
-  if (c.startsWith("BG65")) return 5.86;
-  if (c === "BG80") return 6.58;
-  if (c.startsWith("BG66")) return 6.58;
-  if (c === "BG80POWER") return 6.48;
+/**
+ * Gain cordeur magasin (EUR) pour une ligne "suivi"
+ * Règles prioritaires (exceptions) :
+ * - si règlement Offert => 5€
+ * - si fourni & tarif=12 => 5€
+ * - si bobine base & tarif=12 => 5€
+ * - si bobine spécifique & tarif=14 => 5,80€
+ * Sinon: table cordages.gain_magasin_cents (ou POSE via tarif)
+ */
+function gainMagasinEurForSuiviRow(r, mapCordageGainMagasin) {
+  const modeCanon = canonMode(r.reglement_mode);
+  if (modeCanon === "Offert") return 5.0;
 
-  if (c === "AEROBITE") return 5.98;
+  const tarif = parseMoney(r.tarif);
 
-  if (["NANOGY95","NANOGY98","NANOGY99","NGY95","NGY98","NGY99"].includes(c)) return 6.48;
-  if (["EXBOLT63","EXBOLT65","EXBOLT68"].includes(c)) return 6.43;
+  // Exceptions (prioritaires)
+  if (r.fourni && Math.abs(tarif - 12) < 0.01) return 5.0;
+  if (r.bobine_used === "base" && Math.abs(tarif - 12) < 0.01) return 5.0;
+  if (r.bobine_used === "specific" && Math.abs(tarif - 14) < 0.01) return 5.8;
 
-  if (c === "GARNITURESKYARC") return 4.46;
+  // POSE (si tu veux garder le comportement spécial)
+  const cordCanon = canon(r.cordage_id);
+  if (cordCanon.includes("POSE")) {
+    if (Math.abs(tarif - 14) < 0.01) return 5.83;
+    if (Math.abs(tarif - 12) < 0.01) return 5.0;
+    return DEFAULT_GAIN_EUR;
+  }
 
-  if (c.includes("POSE") && c.includes("14")) return 5.83;
-  if (c.includes("POSE") && c.includes("12")) return 5.00;
-
-  return DEFAULT_GAIN_EUR;
+  // Table gain_magasin_cents
+  const key = cordageKey(r.cordage_id);
+  return mapCordageGainMagasin.get(key) ?? DEFAULT_GAIN_EUR;
 }
 
 function marginForCordageRow(c) {
@@ -352,6 +375,7 @@ const mapCordageGainMagasin = useMemo(() => {
     const tarif = priceForTournoiRow(r);
 
     const cordeurEur = computeGainCordeur({
+      offert: r.offert,
       fourni: r.fourni,
       tarifEur: tarif,
       gainCentsSnapshot: r.gain_cents,
@@ -403,6 +427,7 @@ const tournoiStatsToShow = showAllTournois ? tournoiStats : tournoiStats.slice(0
       const tarif = priceForTournoiRow(r);
 
       const cordeurEur = computeGainCordeur({
+        offert: r.offert,
         fourni: r.fourni,
         tarifEur: tarif,
         gainCentsSnapshot: r.gain_cents,
@@ -461,8 +486,8 @@ const tournoiStatsToShow = showAllTournois ? tournoiStats : tournoiStats.slice(0
     // ---- PART CORDEURS MAGASIN (uniquement si cordeur éligible)
 const cordeurName = mapCordeur.get(r.cordeur_id) || r.cordeur_id || "—";
 if (CORDEURS_MAGASIN.has(cordeurName)) {
-  const payRate = mapCordageGainMagasin.get(key);
-  if (payRate != null) {
+  const payRate = gainMagasinEurForSuiviRow(r, mapCordageGainMagasin);
+if (payRate != null) {
     const cur = m.get(mk); // existe déjà car addItem a fait m.set(mk, cur)
 
     cur.payoutTotal += payRate;
@@ -607,23 +632,13 @@ const remunByMonthCordeur = useMemo(() => {
 
     const mk = monthKey(new Date(r.date));
 
-    let gain;
-
-    // Cas POSE : dépend du tarif 12/14
-    if (canon(r.cordage_id).includes("POSE")) {
-      const t = parseMoney(r.tarif);
-      if (Math.abs(t - 14) < 0.01) gain = 5.83;
-      else if (Math.abs(t - 12) < 0.01) gain = 5.00;
-      else gain = DEFAULT_GAIN_EUR;
-    } else {
-      gain = gainForCordage(r.cordage_id);
-    }
-
+    const gain = gainMagasinEurForSuiviRow(r, mapCordageGainMagasin);
     table[mk][name] = (table[mk][name] || 0) + gain;
+
   }
 
   return { months, table };
-}, [seasonDone, start, end, mapCordeur]);
+}, [seasonDone, start, end, mapCordeur, mapCordageGainMagasin]);
 
 const remunMonthsToShow = useMemo(() => {
   const months = remunByMonthCordeur.months || [];

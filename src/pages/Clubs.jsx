@@ -907,7 +907,7 @@ async function openBobineLot(type, batchIndex) {
             </button>
           </div>
         ))}
-      </div>L
+      </div>
     </details>
   )}
 </div>
