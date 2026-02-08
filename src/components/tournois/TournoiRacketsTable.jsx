@@ -552,7 +552,7 @@ async function handlePickPayment(rowsToPay, modePicked) {
     {r.tension ? ` • ${r.tension}` : ""}
     {/* ✅ Desktop : badge à droite */}
     {r.raquette && (
-      <span className="hidden md:inline-flex ml-2 items-center rounded-lg px-2 py-0.5 text-sm font-semibold text-blue-700 bg-blue-50">
+      <span className="hidden lg:inline-flex ml-2 items-center rounded-lg px-2 py-0.5 text-sm font-semibold text-blue-700 bg-blue-50">
         {r.raquette}
       </span>
     )}
@@ -560,7 +560,7 @@ async function handlePickPayment(rowsToPay, modePicked) {
 
   {/* ✅ Mobile : modèle en dessous */}
   {r.raquette && (
-    <div className="mt-1 md:hidden">
+    <div className="mt-1 lg:hidden">
       <span className="inline-flex max-w-full items-center rounded-lg px-2 py-0.5 text-sm font-semibold text-blue-700 bg-blue-50">
         <span className="truncate">{r.raquette}</span>
       </span>

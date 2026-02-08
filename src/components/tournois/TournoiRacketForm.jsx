@@ -38,6 +38,8 @@
     useEffect(() => {
     if (!editingId || !initialData) return;
 
+    setCount(1); 
+
     setForm({
       date: (initialData.date || new Date().toISOString().slice(0, 10)).slice(0,10),
       client_id: initialData.client_id || "",
@@ -158,110 +160,109 @@ if (allowedSet.size === 0) {
   return row ? (row.price_cents || 0) / 100 : null;
 }, [form.offert, form.fourni, form.club_id, form.cordage_id, clubs, cordages, tarifMatrix]);
 
-    // ------- Submit -------
-    const submit = async (e) => {
-      e.preventDefault();
-      setSaving(true);
-      try {
-        const todayISO = new Date().toISOString().slice(0, 10);
-        const dateISO = (form.date || (editingId ? initialData?.date : null) || todayISO).slice(0,10);
+// ------- Submit -------
+const submit = async (e) => {
+  e.preventDefault();
+  setSaving(true);
 
-        const payload = {
-          tournoi: tournoiName,
-          client_id: form.client_id || null,
-          cordage_id: form.cordage_id || null, // texte (cordages.cordage)
-          tension: form.tension || null,
-          cordeur_id: form.cordeur_id || null,
-          statut_id: form.statut_id || null,
-          raquette: form.raquette || null,
-          club_id: form.club_id || null,       // texte (clubs.clubs)
-          fourni: !!form.fourni,
-          offert: !!form.offert,
-          date: dateISO,
-        };
-        // ... dans submit(), partie "else" (création)
-const qty = Math.max(1, Number(count || 1));
+  try {
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const dateISO = (form.date || (editingId ? initialData?.date : null) || todayISO).slice(0, 10);
 
-const payloads = Array.from({ length: qty }, () => ({
-  tournoi: tournoiName,
-  client_id: form.client_id || null,
-  cordage_id: form.cordage_id || null,
-  tension: form.tension || null,
-  cordeur_id: form.cordeur_id || null,
-  statut_id: form.statut_id || null,
-  raquette: form.raquette || null,
-  club_id: form.club_id || null,
-  fourni: !!form.fourni,
-  offert: !!form.offert,
-  date: dateISO,
-}));
+    const payload = {
+      tournoi: tournoiName,
+      client_id: form.client_id || null,
+      cordage_id: form.cordage_id || null,
+      tension: form.tension || null,
+      cordeur_id: form.cordeur_id || null,
+      statut_id: form.statut_id || null,
+      raquette: form.raquette || null,
+      club_id: form.club_id || null,
+      fourni: !!form.fourni,
+      offert: !!form.offert,
+      date: dateISO,
+    };
 
-const { data: inserted, error } = await supabase
-  .from("tournoi_raquettes")
-  .insert(payloads)
-  .select("id, statut_id, reglement_mode");
+    if (editingId) {
+      // ✅ MODE ÉDITION = UPDATE 1 ligne
+      const { error } = await supabase
+        .from("tournoi_raquettes")
+        .update(payload)
+        .eq("id", editingId);
 
-if (error) throw error;
+      if (error) throw error;
 
-const insertedIds = inserted.map(r => r.id);
-
-        // --- Sauvegarde des préférences client si demandé (cordage/tension) ---
-        try {
-          if (savePrefs && form.client_id) {
-            await supabase
-              .from("clients")
-              .update({
-                cordage: form.cordage_id || null,
-          tension: form.tension || null,
-          // (facultatif) club aussi si tu veux qu’il suive :
-          // club: form.club_id || null,
+      window.dispatchEvent(
+        new CustomEvent("tournoi:raquette:updated", {
+          detail: { tournoi: tournoiName, ids: [editingId] },
         })
-        .eq("id", form.client_id);
+      );
 
-        // informer le reste de l’app que la fiche client a changé
-        window.dispatchEvent(new CustomEvent("clients:updated", { detail: { id: form.client_id }}));
+    } else {
+      // ✅ MODE AJOUT = INSERT (dupliqué)
+      const qty = Math.max(1, Math.min(20, Number(count || 1)));
+      const payloads = Array.from({ length: qty }, () => ({ ...payload }));
+
+      const { data: inserted, error } = await supabase
+        .from("tournoi_raquettes")
+        .insert(payloads)
+        .select("id");
+
+      if (error) throw error;
+
+      const insertedIds = (inserted || []).map((r) => r.id).filter(Boolean);
+
+      window.dispatchEvent(
+        new CustomEvent("tournoi:raquette:created", {
+          detail: { tournoi: tournoiName, ids: insertedIds },
+        })
+      );
+
+      // ✅ Merci + reset uniquement en mode ajout
+      setThanksOpen(true);
+      setForm({
+        date: new Date().toISOString().slice(0, 10),
+        client_id: "",
+        cordage_id: "",
+        tension: "",
+        cordeur_id: "",
+        statut_id: "",
+        raquette: "",
+        club_id: "",
+        fourni: false,
+        offert: false,
+        qty: 1,
+      });
+      setCount(1);
+    }
+
+    // --- Sauvegarde des préférences client (inchangé) ---
+    try {
+      if (savePrefs && form.client_id) {
+        await supabase
+          .from("clients")
+          .update({
+            cordage: form.cordage_id || null,
+            tension: form.tension || null,
+          })
+          .eq("id", form.client_id);
+
+        window.dispatchEvent(
+          new CustomEvent("clients:updated", { detail: { id: form.client_id } })
+        );
       }
     } catch (e) {
       console.warn("Maj préférences client (tournoi) ignorée:", e);
     }
 
-       window.dispatchEvent(
-  new CustomEvent("tournoi:raquette:created", {
-    detail: {
-      tournoi: tournoiName,
-      ids: insertedIds, // ⬅️ LE LOT COMPLET
-    },
-  })
-);
-
-  if (editingId) {
     if (onDone) await onDone();
-    return;
+  } catch (err) {
+    console.error(err);
+    alert(err.message || "Erreur enregistrement raquette");
+  } finally {
+    setSaving(false);
   }
-        
-        setThanksOpen(true);
-        setForm({
-          date: new Date().toISOString().slice(0, 10),
-          client_id: "",
-          cordage_id: "",
-          tension: "",
-          cordeur_id: "",
-          statut_id: "",
-          raquette: "",
-          club_id: "",
-          fourni: false,
-          offert: false,
-          qty: 1,
-        });
-      } catch (err) {
-        console.error(err);
-        alert(err.message || "Erreur ajout raquette");
-      } finally {
-        setSaving(false);
-      }
-    };
-
-    
+};    
 
     // ------- Items ComboBox -------
     const clientItems  = useMemo(() => clients.map((c) => ({ value: c.id,      label: `${c.nom} ${c.prenom}`.trim() })), [clients]);
@@ -416,7 +417,7 @@ const insertedIds = inserted.map(r => r.id);
 
         <div className="mt-3">
           <button className="btn-red focus:ring-2 focus:ring-offset-2 focus:ring-[#E10600]" disabled={saving}>
-            Ajouter
+            {editingId ? "Enregistrer" : "Ajouter"}
           </button>
 
           <CenteredModal
