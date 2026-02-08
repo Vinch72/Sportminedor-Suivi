@@ -2,6 +2,9 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import sportminedorLogo from '../../assets/sportminedor-logo.png'
+import { useAuth } from "../../auth/AuthProvider";
+import { useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 
 const linkCls = ({ isActive }) =>
   [
@@ -16,6 +19,15 @@ const linkTextCls =
 
 export default function TopNav({ unlocked, onAddClick }) {
   const [open, setOpen] = useState(false);
+
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    await signOut();
+    navigate("/login", { replace: true });
+  }
+
 
   // liens (définis une fois pour desktop + mobile)
   const Links = ({ onNavigate }) => (
@@ -82,6 +94,14 @@ export default function TopNav({ unlocked, onAddClick }) {
             🎾 Ajouter une raquette
           </button>
         </div>
+
+      <button
+        onClick={handleLogout}
+        title="Déconnexion"
+        className="h-10 w-10 rounded-full bg-white/10 text-white hover:bg-red-600/80 transition flex items-center justify-center"
+      >
+        <LogOut size={18} />
+      </button>
 
         {/* Burger (mobile) */}
         <button

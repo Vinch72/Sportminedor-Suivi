@@ -1,7 +1,18 @@
 // src/main.jsx
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  NavLink,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
+
+import { AuthProvider } from "./auth/AuthProvider";
+import ProtectedRoute from "./auth/ProtectedRoute";
+import Login from "./pages/Login";
 
 import App from "./App";
 import Clients from "./pages/Clients";
@@ -50,26 +61,26 @@ function OverlayModal({ open, title, onClose, children }) {
       >
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
           {/* header */}
-<div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-  <h2 className="text-xl font-semibold text-brand-dark flex items-center gap-2 leading-none">
-    <span aria-hidden>🎾</span>
-    <span>Ajouter une raquette</span>
-  </h2>
+          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+            <h2 className="text-xl font-semibold text-brand-dark flex items-center gap-2 leading-none">
+              <span aria-hidden>🎾</span>
+              <span>Ajouter une raquette</span>
+            </h2>
 
-  <button
-    type="button"
-    aria-label="Fermer"
-    onClick={onClose}
-    className="h-9 w-9 rounded-full hover:bg-gray-100 text-brand-dark flex items-center justify-center text-xl"
-  >
-    ×
-  </button>
-</div>
+            <button
+              type="button"
+              aria-label="Fermer"
+              onClick={onClose}
+              className="h-9 w-9 rounded-full hover:bg-gray-100 text-brand-dark flex items-center justify-center text-xl"
+            >
+              ×
+            </button>
+          </div>
 
           {/* contenu : on laisse SuiviForm tel quel ; overflow-hidden évite l'effet “carte dans carte” */}
           <div className="p-4 md:p-6 overflow-y-auto max-h-[calc(85vh-72px)]">
-  {children}
-</div>
+            {children}
+          </div>
         </div>
       </div>
     </div>
@@ -77,18 +88,21 @@ function OverlayModal({ open, title, onClose, children }) {
 }
 
 function Shell() {
+  const location = useLocation();
+  const isLoginPage = location.pathname === "/login";
+
   const [unlocked, setUnlocked] = useState(isDonneesUnlocked());
   const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
-  if (!addOpen) return;
+    if (!addOpen) return;
 
-  const prev = document.body.style.overflow;
-  document.body.style.overflow = "hidden";
-  return () => {
-    document.body.style.overflow = prev;
-  };
-}, [addOpen]);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [addOpen]);
 
   // maj cadenas Données en live (storage/focus)
   useEffect(() => {
@@ -107,34 +121,44 @@ function Shell() {
   return (
     <>
       {/* Barre de navigation (remplacée par le composant dédié) */}
-      <TopNav
-        unlocked={unlocked}
-        onAddClick={() => setAddOpen(true)}
-      />
+      {!isLoginPage && (
+        <TopNav unlocked={unlocked} onAddClick={() => setAddOpen(true)} />
+      )}
 
       {/* Routes */}
       <Routes>
-        {/* route Suivi + redirection depuis / */}
-        <Route path="/suivi" element={<App />} />
-        <Route path="/" element={<Navigate to="/suivi" replace />} />
-        <Route path="/stats" element={<Stats />} />
-        <Route path="/donnees" element={<Donnees />} />
-        <Route path="/tournois" element={<TournoisPage />} />
-        <Route path="/clients" element={<Clients />} />
-        <Route path="/clubs" element={<Clubs />} />
+        {/* Public */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Private: tout le reste */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/suivi" element={<App />} />
+          <Route path="/" element={<Navigate to="/suivi" replace />} />
+          <Route path="/stats" element={<Stats />} />
+          <Route path="/donnees" element={<Donnees />} />
+          <Route path="/tournois" element={<TournoisPage />} />
+          <Route path="/clients" element={<Clients />} />
+          <Route path="/clubs" element={<Clubs />} />
+        </Route>
       </Routes>
 
       {/* Modale : une seule carte, titre intégré, pas de bouton “OK” séparé */}
-      <OverlayModal open={addOpen} title="🎾 Ajouter une raquette" onClose={() => setAddOpen(false)}>
-        <SuiviForm
-          editingId={null}
-          initialData={null}
-          onDone={() => {
-            setAddOpen(false);
-            window.dispatchEvent(new CustomEvent("suivi:created"));
-          }}
-        />
-      </OverlayModal>
+      {!isLoginPage && (
+        <OverlayModal
+          open={addOpen}
+          title="🎾 Ajouter une raquette"
+          onClose={() => setAddOpen(false)}
+        >
+          <SuiviForm
+            editingId={null}
+            initialData={null}
+            onDone={() => {
+              setAddOpen(false);
+              window.dispatchEvent(new CustomEvent("suivi:created"));
+            }}
+          />
+        </OverlayModal>
+      )}
     </>
   );
 }
@@ -142,7 +166,9 @@ function Shell() {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
-      <Shell />
+      <AuthProvider>
+        <Shell />
+      </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
