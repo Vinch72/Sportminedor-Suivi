@@ -5,6 +5,11 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log("✅ /api/send-sms HIT", {
+      body: req.body,
+      hasKey: !!process.env.HTTPSMS_API_KEY,
+      hasFrom: !!process.env.HTTPSMS_FROM,
+    });
     const { to, content } = req.body || {};
 
     // ✅ from fixé côté serveur

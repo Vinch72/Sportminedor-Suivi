@@ -90,19 +90,25 @@ function colorToCss(raw) {
 function normalizePhoneFR(input) {
   let s = String(input || "").trim();
 
-  // enlève espaces, points, tirets, parenthèses
+  // garde chiffres et +
   s = s.replace(/[^\d+]/g, "");
 
-  // 06/07 -> +336/+337
-  if (/^0[67]\d{8}$/.test(s)) return "+33" + s.slice(1);
+  // 0033XXXXXXXXX -> +33XXXXXXXXX
+  if (/^0033\d{9}$/.test(s)) s = "+33" + s.slice(4);
 
-  // 33xxxxxxxxx -> +33xxxxxxxxx
+  // +33(0)X... -> +33X...
+  s = s.replace(/^\+33\(?0\)?/, "+33");
+
+  // 0XXXXXXXXX -> +33XXXXXXXXX (06/07 inclus)
+  if (/^0\d{9}$/.test(s)) return "+33" + s.slice(1);
+
+  // 33XXXXXXXXX -> +33XXXXXXXXX
   if (/^33\d{9}$/.test(s)) return "+" + s;
 
-  // déjà en +33...
+  // déjà E.164
   if (/^\+\d{8,15}$/.test(s)) return s;
 
-  return s; // on renvoie tel quel si format exotique
+  return s;
 }
 
 async function sendSmsViaServer({ to, content }) {
@@ -114,8 +120,13 @@ async function sendSmsViaServer({ to, content }) {
 
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
-    throw new Error(data?.error || "Erreur lors de l’envoi SMS");
-  }
+  const msg =
+    data?.details?.message ||
+    data?.details?.error ||
+    data?.error ||
+    "Erreur lors de l’envoi SMS";
+  throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+}
   return data;
 }
 
@@ -225,6 +236,17 @@ useEffect(() => {
   const [noteDialog, setNoteDialog] = useState(null); // { title, note } | null
   const [phoneDialog, setPhoneDialog] = useState(null); // { name, phone }
 
+  const DEFAULT_SMS =
+  "Bonjour, Sportminedor vous informe que votre raquette est cordée et que vous pouvez venir la récupérer.";
+
+const [smsTemplate, setSmsTemplate] = useState(() => {
+  try {
+    return localStorage.getItem("sportminedor:smsTemplate") || DEFAULT_SMS;
+  } catch {
+    return DEFAULT_SMS;
+  }
+});
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -291,6 +313,12 @@ useEffect(() => {
   }, []);  
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+  try {
+    localStorage.setItem("sportminedor:smsTemplate", smsTemplate);
+  } catch {}
+}, [smsTemplate]);
 
   // Si des client_id visibles ne sont pas encore dans la map, on les récupère par leur ID
 useEffect(() => {
@@ -1268,20 +1296,33 @@ for (const r of done) {
         <button aria-label="Fermer" className="text-gray-500 hover:text-black" onClick={() => setMsgDialog(null)}>✕</button>
       </div>
 
-      <div className="mt-4 p-3 rounded-xl border bg-gray-50 text-sm">
-        Bonjour, Sportminedor vous informe que votre raquette est cordée et que vous pouvez venir la récupérer.
-      </div>
+      <div className="mt-4">
+  <div className="text-sm text-gray-600 mb-2">
+    Message (modifiable) :
+  </div>
+  <textarea
+    className="w-full min-h-[110px] p-3 rounded-xl border bg-gray-50 text-sm"
+    value={smsTemplate}
+    onChange={(e) => setSmsTemplate(e.target.value)}
+  />
+  <div className="mt-2 text-xs text-gray-500">
+    Astuce : tu peux personnaliser à la main avant d’envoyer.
+  </div>
+</div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
   <button
     type="button"
     className="px-4 h-10 rounded-xl border bg-white hover:bg-gray-50"
     onClick={async () => {
-      const msg =
-        "Bonjour, Sportminedor vous informe que votre raquette est cordée et que vous pouvez venir la récupérer.";
-
+      const msg = (smsTemplate || "").trim();
       const raw = (msgDialog.phone || "").trim();
       const tel = normalizePhoneFR(raw);
+
+      if (!msg) {
+        alert("Le message est vide.");
+        return;
+      }
 
       if (!tel) {
         try {
