@@ -119,14 +119,17 @@ async function sendSmsViaServer({ to, content }) {
   });
 
   const data = await r.json().catch(() => ({}));
+  console.log("SMS API status:", r.status, "payload:", data);
+
   if (!r.ok) {
-  const msg =
-    data?.details?.message ||
-    data?.details?.error ||
-    data?.error ||
-    "Erreur lors de l’envoi SMS";
-  throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
-}
+    const msg =
+      data?.details?.message ||
+      data?.details?.error ||
+      data?.error ||
+      "Erreur lors de l’envoi SMS";
+    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+  }
+
   return data;
 }
 
