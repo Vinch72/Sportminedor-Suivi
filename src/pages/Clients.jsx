@@ -383,107 +383,146 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
   </div>
 </div>
 
-      {/* Liste des clients */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-3">Clients existants</h2>
-        {loading ? (
-          <div className="text-gray-500">Chargement…</div>
-        ) : filteredClients.length === 0 ? (
-          <div className="text-gray-500">Aucun résultat.</div>
-        ) : (
-  <>
-    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {visibleClients.map((c) => (
-        <li key={c.id}>
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              setSelected(c);
-              setNotesDraft(c.notes ?? "");
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
+{/* Liste des clients */}
+<div className="mt-8">
+  <h2 className="text-lg font-semibold mb-3">Clients existants</h2>
+
+  {loading ? (
+    <div className="text-gray-500">Chargement…</div>
+  ) : filteredClients.length === 0 ? (
+    <div className="text-gray-500">Aucun résultat.</div>
+  ) : (
+    <>
+      <ul className="list-none grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full">
+        {visibleClients.map((c) => (
+          <li key={c.id}>
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => {
                 setSelected(c);
                 setNotesDraft(c.notes ?? "");
-              }
-            }}
-            className="w-full text-left bg-white border border-gray-200 rounded-2xl shadow-card p-4 hover:shadow hover:cursor-pointer"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="font-semibold text-brand-dark">
-                  {[c.prenom, c.nom].filter(Boolean).join(" ")}
-                </div>
-                <div className="text-sm text-gray-500">
-                  {c.cordage ? c.cordage : "—"}
-                  {c.tension ? ` • ${c.tension}` : ""}
-                </div>
-              </div>
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelected(c);
+                  setNotesDraft(c.notes ?? "");
+                }
+              }}
+              className="
+               flex w-full rounded-2xl border border-gray-200 bg-white shadow-sm
+               hover:shadow-md hover:border-gray-300 hover:-translate-y-[1px]
+               transition will-change-transform cursor-pointer overflow-hidden
+              "
+            >
+              {/* Liseré gauche */}
+              <div className="w-1.5 bg-[#E10600]" />
 
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  title="Modifier"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fillFormFromClient(c);
-                  }}
-                  className="p-2 rounded-full hover:bg-gray-100"
-                >
-                  <IconEdit />
-                </button>
+              <div className="flex-1 p-4 min-w-0">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-brand-dark truncate">
+                      {[c.prenom, c.nom].filter(Boolean).join(" ")}
+                    </div>
 
-                <button
-                  type="button"
-                  title="Supprimer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteClient(c);
-                  }}
-                  className="p-2 rounded-full hover:bg-red-100 text-red-600"
-                >
-                  <IconTrash />
-                </button>
+                    {/* Cordage + Tension (tags) */}
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                      <span className="px-2.5 py-1 rounded-full border bg-gray-50 font-medium text-gray-800">
+                        {c.cordage || "—"}
+                      </span>
+
+                      {c.tension ? (
+                        <span className="px-2.5 py-1 rounded-full border border-red-200 bg-red-50 text-red-700 font-semibold">
+                          {c.tension}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        title="Modifier"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fillFormFromClient(c);
+                        }}
+                        className="p-2 rounded-full hover:bg-gray-100"
+                      >
+                        <IconEdit />
+                      </button>
+
+                      <button
+                        type="button"
+                        title="Supprimer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteClient(c);
+                        }}
+                        className="p-2 rounded-full hover:bg-red-100 text-red-600"
+                      >
+                        <IconTrash />
+                      </button>
+                    </div>
+
+                    {/* Note sous les boutons, à droite */}
+                    {c.notes ? (
+                      <div className="mt-2 text-[11px] text-gray-500 italic text-right">
+                        {notePreview(c.notes)}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* Infos contact */}
+                {(c.club || c.phone || c.email) ? (
+                  <div className="mt-3 space-y-1 text-xs text-gray-600">
+                    {c.club ? (
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-blue-600 shrink-0">🛡️</span>
+                        <span className="truncate">{c.club}</span>
+                      </div>
+                    ) : null}
+
+                    {c.phone ? (
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="shrink-0">📞</span>
+                        <span className="truncate">{c.phone}</span>
+                      </div>
+                    ) : null}
+
+                    {c.email ? (
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="shrink-0">@</span>
+                        <span className="truncate">{c.email}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
+          </li>
+        ))}
+      </ul>
 
-            {(c.club || c.phone || c.email) && (
-              <div className="mt-2 text-xs text-gray-500">
-                {c.club ? `Club: ${c.club}` : ""}
-                {c.phone ? ` · Tel: ${c.phone}` : ""}
-                {c.email ? ` · Email: ${c.email}` : ""}
-              </div>
-            )}
-
-            {c.notes && (
-              <div className="mt-2 text-xs text-gray-600">
-                📝 {notePreview(c.notes)}
-              </div>
-            )}
-          </div>
-        </li>
-      ))}
-    </ul>
-
-    {filteredClients.length > visibleCount && (
-      <div className="mt-4 flex justify-center">
-        <button
-          type="button"
-          className="px-4 h-10 rounded-xl border bg-white hover:bg-gray-50 text-sm"
-          onClick={() =>
-            setVisibleCount((v) =>
-              Math.min(v + STEP, filteredClients.length)
-            )
-          }
-        >
-          Charger plus ({visibleCount}/{filteredClients.length})
-        </button>
-      </div>
-    )}
-  </>
-)}
+      {filteredClients.length > visibleCount && (
+        <div className="mt-4 flex justify-center">
+          <button
+            type="button"
+            className="px-4 h-10 rounded-xl border bg-white hover:bg-gray-50 text-sm"
+            onClick={() =>
+              setVisibleCount((v) => Math.min(v + STEP, filteredClients.length))
+            }
+          >
+            Charger plus ({visibleCount}/{filteredClients.length})
+          </button>
+        </div>
+      )}
+    </>
+  )}
 </div>
 
       {/* Popup détail + notes */}

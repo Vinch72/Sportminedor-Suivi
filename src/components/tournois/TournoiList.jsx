@@ -367,66 +367,69 @@ export default function TournoiList({ onEdit, onOpen, query = "" }) {
     <div className="w-1.5 bg-[#E10600]" />
 
     <div className="flex-1 p-4">
-      <div className="flex justify-between items-start gap-3 relative">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 min-w-0">
-  <div className="flex items-center gap-2 min-w-0">
-  <div className="font-semibold text-black truncate text-base min-w-0">
-    {t.tournoi}
+      <div className="flex items-start gap-3 min-w-0 flex-wrap">
+  {/* TEXTE (doit pouvoir rétrécir) */}
+      <div className="min-w-0 flex-1 basis-0">
+    <div className="font-semibold text-black text-base truncate">
+      {t.tournoi}
+    </div>
+
+    <div className="mt-1 text-sm text-gray-600 flex items-center gap-2 min-w-0">
+      <span className="opacity-80 shrink-0">📅</span>
+      <span className="truncate">
+        {displayDate(t.start_date)}
+        {t.end_date ? ` → ${displayDate(t.end_date)}` : ""}
+      </span>
+    </div>
+  </div>
+
+  {/* ACTIONS (doivent rester visibles) */}
+  <div className="flex items-center gap-2 shrink-0 ml-auto">
+    <button
+      className="h-9 w-9 rounded-full border bg-white hover:bg-gray-50 flex items-center justify-center"
+      onClick={() => onEdit?.(t)}
+      aria-label="Éditer"
+      title="Éditer"
+    >
+      <IconEdit />
+    </button>
+
+    <button
+      className="h-9 w-9 rounded-full border border-red-200 bg-white hover:bg-red-50 flex items-center justify-center"
+      onClick={() => onDelete(t.tournoi)}
+      aria-label="Supprimer"
+      title="Supprimer"
+    >
+      <IconTrash />
+    </button>
   </div>
 </div>
+
+      {/* Cordeur + durée */}
+<div className="mt-3 flex items-center justify-between gap-2">
+  {/* Cordeurs */}
+  <div className="flex flex-wrap gap-2 min-w-0">
+    {(cordeursBy[t.tournoi] || []).length ? (
+      (cordeursBy[t.tournoi] || []).map((c) => (
+        <span
+          key={c}
+          className="px-2.5 py-1 rounded-full text-xs border border-gray-200 bg-white text-gray-800 shadow-[0_1px_0_rgba(0,0,0,0.02)]"
+        >
+          {c}
+        </span>
+      ))
+    ) : (
+      <span className="text-sm text-gray-400">—</span>
+    )}
+  </div>
+
+  {/* Badge durée */}
+  {dayCountLabel(t.start_date, t.end_date) && (
+    <span className="shrink-0 text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 whitespace-nowrap">
+      ⏱ {dayCountLabel(t.start_date, t.end_date)}
+    </span>
+  )}
 </div>
-          <div className="mt-1 text-sm text-gray-600 flex items-center gap-2">
-            <span className="opacity-80">📅</span>
-            <span>
-              {displayDate(t.start_date)}
-              {t.end_date ? ` → ${displayDate(t.end_date)}` : ""}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {dayCountLabel(t.start_date, t.end_date) ? (
-            <span className="text-xs px-2 py-1 rounded-full border bg-gray-50 text-gray-700 whitespace-nowrap">
-              {dayCountLabel(t.start_date, t.end_date)}
-            </span>
-          ) : null}
-          <button
-            className="h-9 w-9 rounded-full border bg-white hover:bg-gray-50 flex items-center justify-center"
-            onClick={() => onEdit?.(t)}
-            aria-label="Éditer"
-            title="Éditer"
-          >
-            <IconEdit />
-          </button>
-
-          <button
-            className="h-9 w-9 rounded-full border border-red-200 bg-white hover:bg-red-50 flex items-center justify-center"
-            onClick={() => onDelete(t.tournoi)}
-            aria-label="Supprimer"
-            title="Supprimer"
-          >
-            <IconTrash />
-          </button>
-        </div>
-      </div>
-
-      {/* Cordeurs en "chips" */}
-      <div className="mt-3 flex flex-wrap gap-2">
-        {(cordeursBy[t.tournoi] || []).length ? (
-          (cordeursBy[t.tournoi] || []).map((c) => (
-            <span
-              key={c}
-              className="px-2.5 py-1 rounded-full text-xs border border-gray-200 bg-white text-gray-800 shadow-[0_1px_0_rgba(0,0,0,0.02)]"
-              title="Cordeur"
-            >
-              {c}
-            </span>
-          ))
-        ) : (
-          <span className="text-sm text-gray-400">—</span>
-        )}
-      </div>
 
       {/* footer */}
       <div className="mt-4 pt-3 border-t flex items-center justify-between gap-3">

@@ -663,9 +663,28 @@ async function openBobineLot(type, batchIndex) {
     </div>
     <div>
       <div className="font-semibold text-brand-dark">{c?.clubs ?? "—"}</div>
-      <div className="text-xs text-gray-600 mt-1">
-        Base: {c?.bobine_base ? "Oui" : "Non"} • Spécifique: {c?.bobine_specific ? "Oui" : "Non"}
-      </div>
+
+<div className="mt-1 flex flex-wrap gap-2">
+  <span
+    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs border ${
+      c?.bobine_base
+        ? "border-gray-900 text-gray-900 bg-white"
+        : "border-gray-200 text-gray-500 bg-gray-50"
+    }`}
+  >
+    Base : {c?.bobine_base ? "Oui" : "Non"}
+  </span>
+
+  <span
+    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs border ${
+      c?.bobine_specific
+        ? "border-red-600 text-red-600 bg-red-50"
+        : "border-gray-200 text-gray-500 bg-gray-50"
+    }`}
+  >
+    Spécifique : {c?.bobine_specific ? "Oui" : "Non"}
+  </span>
+</div>
     </div>
   </div>
 
