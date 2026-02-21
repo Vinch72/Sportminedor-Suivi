@@ -627,7 +627,7 @@ async function handlePickPayment(rowsToPay, modePicked) {
           {/* Pictos + règlement + tarif */}
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <button type="button" className={pill(flags.racket)} title="Fait / Pas fait" onClick={() => toggleRacket(r)}>
-              <span aria-hidden>🎾</span>
+              <span aria-hidden>🏸</span>
             </button>
             <button type="button" className={pill(flags.bill)} title="Payé / Non payé" onClick={() => setPayDialog({ rows: [r] })}>
               <span aria-hidden>💶</span>

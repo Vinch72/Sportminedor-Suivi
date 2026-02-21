@@ -27,6 +27,28 @@ function sortByNomPrenom(arr) {
   });
 }
 
+function formatPhone(raw) {
+  let digits = raw.replace(/[^\d+]/g, "");
+  if (digits.startsWith("0") && digits.length >= 1) {
+    digits = "+33" + digits.slice(1);
+  }
+  if (!digits.startsWith("+") && digits.length > 0) {
+    digits = "+33" + digits;
+  }
+  return digits;
+}
+
+function formatNom(s) {
+  return (s || "").toUpperCase();
+}
+
+function formatPrenom(s) {
+  if (!s) return "";
+  return s
+    .toLowerCase()
+    .replace(/(^|\s|-)([a-zàâäéèêëîïôùûüç])/g, (_, sep, letter) => sep + letter.toUpperCase());
+}
+
 /* ===== Icônes ===== */
 function IconEdit(props){
   return (
@@ -176,12 +198,12 @@ export default function Clients() {
 
   function fillFormFromClient(c) {
     setEditingId(c.id);
-    setNom(c.nom || "");
-    setPrenom(c.prenom || "");
+    setNom(formatNom(c.nom || ""));
+    setPrenom(formatPrenom(c.prenom || ""));
     setTension(c.tension || "");
     setCordage(c.cordage || "");
     setClub(c.club || "");
-    setPhone(c.phone || c.telephone || "");
+    setPhone(c.phone ? formatPhone(c.phone) : "");
     setEmail(c.email || "");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -320,10 +342,10 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
 
         <form onSubmit={onSubmit} className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Field label="Nom" required>
-            <input className="w-full border rounded-lg p-2" value={nom} onChange={e=>setNom(e.target.value)} />
+            <input className="w-full border rounded-lg p-2" value={nom} onChange={e=>setNom(formatNom(e.target.value))} />
           </Field>
           <Field label="Prénom" required>
-            <input className="w-full border rounded-lg p-2" value={prenom} onChange={e=>setPrenom(e.target.value)} />
+            <input className="w-full border rounded-lg p-2" value={prenom} onChange={e=>setPrenom(formatPrenom(e.target.value))} />
           </Field>
           <Field label="Tension">
             <input className="w-full border rounded-lg p-2" placeholder="ex: 11-11,5" value={tension} onChange={e=>setTension(e.target.value)} />
@@ -341,7 +363,7 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
             </select>
           </Field>
           <Field label="Téléphone (optionnel)">
-            <input className="w-full border rounded-lg p-2" value={phone} onChange={e=>setPhone(e.target.value)} />
+            <input className="w-full border rounded-lg p-2" value={phone} onChange={e=>setPhone(formatPhone(e.target.value))} />
           </Field>
           <Field label="Email (optionnel)">
             <input type="email" className="w-full border rounded-lg p-2" value={email} onChange={e=>setEmail(e.target.value)} />

@@ -63,7 +63,7 @@ function OverlayModal({ open, title, onClose, children }) {
           {/* header */}
           <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
             <h2 className="text-xl font-semibold text-brand-dark flex items-center gap-2 leading-none">
-              <span aria-hidden>🎾</span>
+              <span aria-hidden>🏸</span>
               <span>Ajouter une raquette</span>
             </h2>
 
@@ -146,7 +146,7 @@ function Shell() {
       {!isLoginPage && (
         <OverlayModal
           open={addOpen}
-          title="🎾 Ajouter une raquette"
+          title="🏸 Ajouter une raquette"
           onClose={() => setAddOpen(false)}
         >
           <SuiviForm

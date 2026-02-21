@@ -78,11 +78,14 @@ export default function MonthlyRevenueChart() {
       if (!map.has(key)) continue;
       map.set(key, (map.get(key) || 0) + parseMoney(r.tarif));
     }
-    return months.map((k) => ({
-      k,
-      label: labelFR(k),
-      total: Math.max(0, Math.round(map.get(k) || 0)),
-    }));
+    const todayKey = monthKey(new Date());
+return months
+  .filter((k) => k <= todayKey)
+  .map((k) => ({
+    k,
+    label: labelFR(k),
+    total: Math.max(0, Math.round(map.get(k) || 0)),
+  }));
   }, [rows, months]);
 
   // Forcer le scroll horizontal (≈80px/point)
@@ -102,7 +105,7 @@ export default function MonthlyRevenueChart() {
                 formatter={(v) => euro(v)}
                 labelFormatter={(l, p) => p?.[0]?.payload?.label || l}
               />
-              <Line type="monotone" dataKey="total" dot strokeWidth={2} />
+              <Line type="monotone" dataKey="total" dot={{ fill: "#E10600", r: 3 }} strokeWidth={2.5} stroke="#E10600" activeDot={{ r: 5 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>

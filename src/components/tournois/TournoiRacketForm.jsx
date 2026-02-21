@@ -4,6 +4,17 @@
   import ComboBox from "../ui/ComboBox";
   import CenteredModal from "../ui/CenteredModal";
 
+function formatNom(s) {
+  return (s || "").toUpperCase();
+}
+
+function formatPrenom(s) {
+  if (!s) return "";
+  return s
+    .toLowerCase()
+    .replace(/(^|\s|-)([a-zàâäéèêëîïôùûüç])/g, (_, sep, letter) => sep + letter.toUpperCase());
+}
+
   export default function TournoiRacketForm({
     tournoiName,
     allowedCordeurs = [],
@@ -265,7 +276,7 @@ const submit = async (e) => {
 };    
 
     // ------- Items ComboBox -------
-    const clientItems  = useMemo(() => clients.map((c) => ({ value: c.id,      label: `${c.nom} ${c.prenom}`.trim() })), [clients]);
+    const clientItems  = useMemo(() => clients.map((c) => ({ value: c.id, label: `${formatNom(c.nom)} ${formatPrenom(c.prenom)}`.trim() })), [clients]);
     const cordageItems = useMemo(() => cordages.map((co) => ({ value: co.cordage, label: co.Couleur && co.Couleur !== "none" ? `● ${co.cordage}` : co.cordage })), [cordages]);
     const clubItems    = useMemo(() => (clubs || []).map((cl) => ({ value: cl.clubs, label: cl.clubs })), [clubs]);
     const cordeurItems = useMemo(() => (cordeurs || []).map((c) => ({ value: c.cordeur, label: c.cordeur })), [cordeurs]);
@@ -370,7 +381,7 @@ const submit = async (e) => {
             <input
               className="border rounded-md px-3 py-2 w-full"
               value={form.raquette}
-              onChange={(e) => setForm((f) => ({ ...f, raquette: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, raquette: e.target.value.toUpperCase() }))}
               placeholder="Ex: Pure Drive, Pro Staff…"
             />
           </div>
@@ -424,7 +435,7 @@ const submit = async (e) => {
             open={thanksOpen}
             onClose={() => setThanksOpen(false)}
             title="Merci de nous avoir confié ta raquette 🙌"
-            icon="🎾"
+            icon="🏸"
           >
             N’oublie pas de la <b>décorder</b> ! Le cordeur va faire au plus vite.
           </CenteredModal>

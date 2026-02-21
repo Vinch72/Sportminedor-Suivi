@@ -3,6 +3,20 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../utils/supabaseClient";
 import ComboBox from "../ui/ComboBox";
 
+function formatNom(s) { return (s || "").toUpperCase(); }
+
+function formatPrenom(s) {
+  if (!s) return "";
+  return s.toLowerCase().replace(/(^|\s|-)([a-zàâäéèêëîïôùûüç])/g, (_, sep, letter) => sep + letter.toUpperCase());
+}
+
+function formatPhone(raw) {
+  let digits = raw.replace(/[^\d+]/g, "");
+  if (digits.startsWith("0")) digits = "+33" + digits.slice(1);
+  else if (!digits.startsWith("+") && digits.length > 0) digits = "+33" + digits;
+  return digits;
+}
+
 export default function NewClientInline({ onCreated }) {
   const [cordages, setCordages] = useState([]);
   const [clubs, setClubs] = useState([]);
@@ -113,7 +127,7 @@ export default function NewClientInline({ onCreated }) {
             <input
               className="border rounded-md px-3 py-2 w-full"
               value={f.nom}
-              onChange={(e) => setF((s) => ({ ...s, nom: e.target.value }))}
+              onChange={(e) => setF((s) => ({ ...s, nom: formatNom(e.target.value) }))}
             />
           </div>
 
@@ -122,7 +136,7 @@ export default function NewClientInline({ onCreated }) {
             <input
               className="border rounded-md px-3 py-2 w-full"
               value={f.prenom}
-              onChange={(e) => setF((s) => ({ ...s, prenom: e.target.value }))}
+              onChange={(e) => setF((s) => ({ ...s, prenom: formatPrenom(e.target.value) }))}
             />
           </div>
 
@@ -162,7 +176,7 @@ export default function NewClientInline({ onCreated }) {
             <input
               className="border rounded-md px-3 py-2 w-full"
               value={f.phone}
-              onChange={(e) => setF((s) => ({ ...s, phone: e.target.value }))}
+              onChange={(e) => setF((s) => ({ ...s, phone: formatPhone(e.target.value) }))}
             />
           </div>
 

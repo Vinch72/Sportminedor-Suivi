@@ -91,7 +91,7 @@ export default function TopNav({ unlocked, onAddClick }) {
             onClick={onAddClick}
             className="inline-flex items-center h-10 px-4 rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold shadow"
           >
-            🎾 Ajouter une raquette
+            🏸 Ajouter une raquette
           </button>
         </div>
 
@@ -139,7 +139,7 @@ export default function TopNav({ unlocked, onAddClick }) {
               }}
               className="mt-2 inline-flex items-center justify-center h-10 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold"
             >
-              🎾 Ajouter une raquette
+              🏸 Ajouter une raquette
             </button>
           </nav>
         </div>

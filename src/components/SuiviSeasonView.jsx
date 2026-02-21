@@ -583,7 +583,7 @@ useEffect(() => {
 
   // Flags (verts/gris) dérivés d'une ligne
   function deriveFlags(row) {
-    const racket = U(row.statut_id) !== "A FAIRE";                                    // 🎾
+    const racket = U(row.statut_id) !== "A FAIRE";                                    // 🏸
     const bill   = !!(row.reglement_mode && String(row.reglement_mode).trim());       // 💶
     const msg    = !!row.contacted_at || U(row.statut_id) === "MESSAGE ENVOYE";       // 💬
     const ret    = U(row.statut_id) === "RENDU";                                      // ↩️
@@ -599,7 +599,7 @@ useEffect(() => {
     return true;
   }
 
-  // 🎾 toggle fait/pas fait
+  // 🏸 toggle fait/pas fait
   async function toggleRacket(row) {
     const f = deriveFlags(row);
     const next = { ...f, racket: !f.racket };
@@ -756,7 +756,7 @@ async function markMessageSent(row) {
         {/* rangée: pictos + cordeur (sur la même ligne) */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <button type="button" className={pill(flags.racket)} title="Fait / Pas fait" onClick={() => toggleRacket(r)}>🎾</button>
+            <button type="button" className={pill(flags.racket)} title="Fait / Pas fait" onClick={() => toggleRacket(r)}>🏸</button>
             <button type="button" className={pill(flags.bill)}   title="Payé / Non payé" onClick={() => toggleBill(r)}>💶</button>
             <button type="button" className={pill(flags.msg)}    title="Message envoyé / Non envoyé" onClick={() => toggleMessage(r)}>💬</button>
             <button type="button" className={pill(flags.ret)}    title="Rendu / Non rendu" onClick={() => toggleReturn(r)}>↩️</button>
@@ -896,7 +896,7 @@ async function markMessageSent(row) {
         </div>
         <div className="text-right text-sm">{tarifLabel}</div>
         <div className="flex items-center justify-center gap-2">
-          <button type="button" className={pill(flags.racket)} title="Fait / Pas fait" onClick={() => toggleRacket(r)}>🎾</button>
+          <button type="button" className={pill(flags.racket)} title="Fait / Pas fait" onClick={() => toggleRacket(r)}>🏸</button>
           <button type="button" className={pill(flags.bill)}   title="Payé / Non payé" onClick={() => toggleBill(r)}>💶</button>
           <button type="button" className={pill(flags.msg)}    title="Message envoyé / Non envoyé" onClick={() => toggleMessage(r)}>💬</button>
           <button type="button" className={pill(flags.ret)}    title="Rendu / Non rendu" onClick={() => toggleReturn(r)}>↩️</button>
@@ -1051,47 +1051,81 @@ for (const r of done) {
   gainsByCordeur[nom] = (gainsByCordeur[nom] || 0) + gainCents;
 }
 
-  return (
-    <div className="mt-2 grid md:grid-cols-4 gap-2">{/* ← 3 -> 4 colonnes */}
-      <div className="rounded-xl border p-3">
-        <div className="text-sm text-gray-600">Argent total généré</div>
-        <div className="text-xl font-bold">{euro(totalRevenue)}</div>
-      </div>
+    return (
+  <div className="mt-3 grid md:grid-cols-4 gap-3">
 
-      <div className="rounded-xl border p-3">
-        <div className="text-sm text-gray-600">Raquettes par cordeur</div>
-        <ul className="text-sm mt-1 space-y-0.5">
-          {Object.keys(countByCordeur).length === 0 && <li>—</li>}
-          {Object.entries(countByCordeur).map(([k, v]) => (
-            <li key={k}>{k}: <b>{v}</b></li>
-          ))}
-        </ul>
+    {/* Argent total */}
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Revenu du mois</span>
+        <span className="text-base">💰</span>
       </div>
+      <div className="text-2xl font-extrabold text-gray-900 tracking-tight">{euro(totalRevenue)}</div>
+      <div className="text-xs text-gray-400">{done.length} raquette{done.length > 1 ? "s" : ""} facturées</div>
+    </div>
 
-      <div className="rounded-xl border p-3">
-  <div className="text-sm text-gray-600">Gain cordeur (magasin)</div>
-  {Object.keys(gainsByCordeur).length === 0 ? (
-    <div className="text-xl font-bold">—</div>
-  ) : (
-    <ul className="text-sm mt-1 space-y-0.5">
-      {Object.entries(gainsByCordeur)
-        .sort(([a], [b]) => a.localeCompare(b, "fr"))
-        .map(([k, v]) => (
-          <li key={k} className="flex justify-between">
-            <span>{k}</span>
-            <b>{euro(v / 100)}</b>
-          </li>
-        ))}
-    </ul>
-  )}
-</div>
-
-      <div className="rounded-xl border p-3">
-        <div className="text-sm text-gray-600">Entrées (mois)</div>
-        <div className="text-xl font-bold">{items.length}</div>
+    {/* Raquettes par cordeur */}
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Par cordeur</span>
+        <span className="text-base">🧑‍🔧</span>
       </div>
-    </div>  
-  );
+      <div className="flex flex-col gap-1.5 mt-1">
+        {Object.keys(countByCordeur).length === 0 && <span className="text-sm text-gray-300">—</span>}
+        {Object.entries(countByCordeur)
+          .sort((a, b) => b[1] - a[1])
+          .map(([k, v]) => {
+            const max = Math.max(...Object.values(countByCordeur));
+            const pct = Math.round(v / max * 100);
+            return (
+              <div key={k} className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 w-20 truncate">{k}</span>
+                <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-full rounded-full bg-[#E10600] opacity-70" style={{ width: `${pct}%` }} />
+                </div>
+                <span className="text-xs font-bold w-6 text-right">{v}</span>
+              </div>
+            );
+          })}
+      </div>
+    </div>
+
+    {/* Gains cordeurs magasin */}
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Gains magasin</span>
+        <span className="text-base">🏪</span>
+      </div>
+      {Object.keys(gainsByCordeur).length === 0 ? (
+        <span className="text-sm text-gray-300 mt-1">—</span>
+      ) : (
+        <div className="flex flex-col gap-1.5 mt-1">
+          {Object.entries(gainsByCordeur)
+            .sort(([, a], [, b]) => b - a)
+            .map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">{k}</span>
+                <span className="text-xs font-bold text-[#E10600]">{euro(v / 100)}</span>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+
+    {/* Entrées */}
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Entrées</span>
+        <span className="text-base">🏸</span>
+      </div>
+      <div className="text-2xl font-extrabold text-gray-900 tracking-tight">{items.length}</div>
+      <div className="text-xs text-gray-400">
+        {done.length} faite{done.length > 1 ? "s" : ""} · {items.length - done.length} à faire
+      </div>
+    </div>
+
+  </div>
+);
 })()}
 
                           {/* --- Liste des lignes du mois --- */}

@@ -5,7 +5,7 @@ export default function CenteredModal({
   open,
   onClose,
   title = "Merci !",
-  icon = "🎾",
+  icon = "🏸",
   children,
   confirmLabel = "OK",
   dark = false, // ⬅️ active le thème noir

@@ -16,6 +16,32 @@ const U = (s) =>
     .replace(/\p{Diacritic}/gu, "")
     .toUpperCase();
 
+// 👇 Ajoute ces fonctions juste en dessous
+function formatPhone(raw) {
+  // Supprime tout sauf chiffres et "+"
+  let digits = raw.replace(/[^\d+]/g, "");
+  // Convertit "06..." ou "06..." → "+336..."
+  if (digits.startsWith("0") && digits.length >= 1) {
+    digits = "+33" + digits.slice(1);
+  }
+  // Si pas de "+", on préfixe
+  if (!digits.startsWith("+")) {
+    digits = "+33" + digits;
+  }
+  return digits;
+}
+
+function formatNom(s) {
+  return (s || "").toUpperCase();
+}
+
+function formatPrenom(s) {
+  if (!s) return "";
+  return s
+    .toLowerCase()
+    .replace(/(^|\s|-)([a-zàâäéèêëîïôùûüç])/g, (_, sep, letter) => sep + letter.toUpperCase());
+}
+
 export default function SuiviForm({ editingId, initialData, onDone, onTitleChange }) {  
   const isEdit = !!editingId; // [EDIT]
 
@@ -70,7 +96,7 @@ useEffect(() => {
   if (mag) setLieu(mag.tournoi);
 }, [tournois, lieu]);
 
-  // Informe le parent pour afficher "🎾 {raquette}" dans le titre
+  // Informe le parent pour afficher "🏸 {raquette}" dans le titre
 useEffect(() => {
   if (typeof onTitleChange === "function") {
     onTitleChange(raquette || "");
@@ -172,7 +198,7 @@ useEffect(() => {
     if (!clubId && c.club) setClubId(c.club);
     if (!tension && c.tension) setTension(c.tension);
     if (!cordageId && c.cordage) setCordageId(c.cordage);
-    if (!phone && c.phone) setPhone(c.phone);
+    if (!phone && c.phone) setPhone(formatPhone(c.phone));
 
     setLastClientId(clientId);
   }
@@ -479,7 +505,7 @@ onDone?.({ type: "created", count: data.length });
           value={clientId}
           onChange={setClientId}
           getValue={c => c.id}
-          getLabel={c => [c.prenom, c.nom].filter(Boolean).join(" ") || c.id}
+          getLabel={c => [formatPrenom(c.prenom), formatNom(c.nom)].filter(Boolean).join(" ") || c.id}
           placeholder="Rechercher un client…"
         />
       </div>
@@ -502,9 +528,9 @@ onDone?.({ type: "created", count: data.length });
     <input
       type="text"
       value={phone}
-      onChange={(e) => setPhone(e.target.value)}
+      onChange={(e) => setPhone(formatPhone(e.target.value))}
       className="w-full border rounded-lg p-2"
-      placeholder="ex: 06 12 34 56 78"
+      placeholder="ex: +33 6 12 34 56 78"
     />
   </Field>
 
@@ -561,7 +587,7 @@ onDone?.({ type: "created", count: data.length });
         {/* Raquette + Cordeur + Oui/Non */}
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
   <Field label="Modèle de raquette">
-    <input type="text" value={raquette} onChange={e=>setRaquette(e.target.value)} className="w-full border rounded-lg p-2" placeholder="ex: Astrox 88 S Pro" />
+    <input type="text" value={raquette} onChange={e=>setRaquette(e.target.value.toUpperCase())} className="w-full border rounded-lg p-2" placeholder="ex: Astrox 88 S Pro" />
   </Field>
 
   <Field label="Cordeur">
