@@ -525,7 +525,7 @@ export default function Stats() {
 
           {/* Bar chart raquettes/mois */}
           <Card>
-            <CardHeader title="🎾 Raquettes cordées par mois" />
+            <CardHeader title="🏸 Raquettes cordées par mois" />
             <div style={{ padding: "0 16px 16px" }}>
               <ResponsiveContainer width="100%" height={isMobile ? 170 : 190}>
                 <BarChart data={countByMonth} barSize={isMobile ? 14 : 20} margin={{ left: 0, right: 0 }}>

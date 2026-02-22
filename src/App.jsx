@@ -364,7 +364,7 @@ useEffect(() => {
     <Card
   title="À faire"
   value={fmt(stats.aFaire, loading, err)}
-  icon="🎾"
+  icon="🏸"
   active={activeQuickFilter === "AFAIRE"}
   onClick={() => toggleQuickFilter("AFAIRE")}
   showAccent
