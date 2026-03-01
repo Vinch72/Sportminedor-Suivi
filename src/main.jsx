@@ -25,6 +25,7 @@ import "./index.css";
 import logo from "./assets/sportminedor-logo.png";
 
 import TopNav from "./components/Layout/TopNav";
+import { supabase } from "./utils/supabaseClient";
 
 // On n'utilise pas CenteredModal ici pour éviter la modale dans la modale
 import SuiviForm from "./components/SuiviForm";
@@ -93,6 +94,10 @@ function Shell() {
 
   const [unlocked, setUnlocked] = useState(isDonneesUnlocked());
   const [addOpen, setAddOpen] = useState(false);
+  const [role, setRole] = useState(null);
+
+  const isTournamentOnly = role === "tournament_only";
+  const isTournoiPath = location.pathname.startsWith("/tournois");
 
   useEffect(() => {
     if (!addOpen) return;
@@ -118,11 +123,50 @@ function Shell() {
     };
   }, []);
 
+  useEffect(() => {
+  let alive = true;
+
+  const loadRole = async (user) => {
+    if (!user) {
+      if (alive) setRole("anonymous");
+      return;
+    }
+
+    const { data: prof, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    // si pas de ligne profile → accès normal
+    if (alive) setRole(prof?.role ?? "user");
+  };
+
+  // 1) rôle au chargement
+  supabase.auth.getUser().then(({ data }) => loadRole(data?.user));
+
+  // 2) rôle à chaque login/logout
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    loadRole(session?.user ?? null);
+  });
+
+  return () => {
+    alive = false;
+    subscription?.unsubscribe();
+  };
+}, []);
+if (!isLoginPage && role && isTournamentOnly && !isTournoiPath) {
+  return <Navigate to="/tournois" replace />;
+}
   return (
     <>
       {/* Barre de navigation (remplacée par le composant dédié) */}
       {!isLoginPage && (
-        <TopNav unlocked={unlocked} onAddClick={() => setAddOpen(true)} />
+        <TopNav
+          unlocked={unlocked}
+          onAddClick={isTournamentOnly ? undefined : () => setAddOpen(true)}
+          role={role}
+        />
       )}
 
       {/* Routes */}
@@ -143,7 +187,7 @@ function Shell() {
       </Routes>
 
       {/* Modale : une seule carte, titre intégré, pas de bouton “OK” séparé */}
-      {!isLoginPage && (
+      {!isLoginPage && !isTournamentOnly && (
         <OverlayModal
           open={addOpen}
           title="🏸 Ajouter une raquette"

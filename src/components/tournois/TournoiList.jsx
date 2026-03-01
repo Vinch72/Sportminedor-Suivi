@@ -110,7 +110,7 @@ export default function TournoiList({ onEdit, onOpen, query = "" }) {
       // 1) tentative moderne: colonnes start_date/end_date
       let res = await supabase
         .from("tournois")
-        .select("tournoi, start_date, end_date, date, infos")
+        .select("tournoi, start_date, end_date, date, infos, use_blue")
         .order("start_date", { ascending: true, nullsFirst: true })
         .order("end_date",   { ascending: true, nullsFirst: true })
         .order("date",       { ascending: true, nullsFirst: true });
@@ -135,6 +135,7 @@ export default function TournoiList({ onEdit, onOpen, query = "" }) {
         start_date: t.start_date || t.date || null,
         end_date: t.end_date || t.date || null,
         infos: t.infos || "",
+        use_blue: !!t.use_blue,
       }));
 
       setRows(normalized);
@@ -422,6 +423,13 @@ export default function TournoiList({ onEdit, onOpen, query = "" }) {
       <span className="text-sm text-gray-400">—</span>
     )}
   </div>
+
+  {/* Badge Blue */}
+  {t.use_blue && (
+    <span className="shrink-0 text-xs px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-100 whitespace-nowrap">
+      🟦 Utilisation de Blue
+    </span>
+  )}
 
   {/* Badge durée */}
   {dayCountLabel(t.start_date, t.end_date) && (

@@ -79,6 +79,20 @@ function showToast(t) {
     try { const dt = new Date(d); return isNaN(dt) ? "—" : dt.toLocaleDateString("fr-FR"); } catch { return "—"; }
   };
 
+  function buildMailto({ to = "", subject, body }) {
+  const enc = (s) => encodeURIComponent(String(s || ""));
+  return `mailto:${to}?subject=${enc(subject)}&body=${enc(body)}`;
+}
+
+  function ellipsisLines(lines, maxLines = 40) {
+  if (lines.length <= maxLines) return lines;
+  return [
+    ...lines.slice(0, maxLines),
+    "",
+    "… (liste tronquée)",
+  ];
+}
+
   // Export “toutes”
  const onExportAll = async () => {
   setConfirmAllOpen(true);
@@ -512,6 +526,102 @@ async function handlePickPayment(rowsToPay, modePicked) {
     .sort((a,b) => b.eurosCents - a.eurosCents || a.cordeur.localeCompare(b.cordeur));
   const totalGainCents = gainsCalc.reduce((sum, g) => sum + (g.eurosCents || 0), 0);
 
+  const gainsByCordeurCordage = useMemo(() => {
+  // clé: cordeur -> Map(cordage -> { cordage, count, eurosCents })
+  const outer = new Map();
+
+  for (const r of doneRows) {
+    const cordeur = (r.cordeur?.cordeur || r.cordeur_id || "—").toString();
+    const cordageLabel = (r.cordage?.cordage || r.cordage_id || "—")
+      .toString()
+      .trim()
+      .toUpperCase();
+
+    const isOffert = r.offert === true || /offert/i.test(String(r.reglement_mode || ""));
+    const tarif = priceForRow(r);
+
+    const gainEur = computeGainCordeur({
+      offert: isOffert,
+      fourni: r.fourni,
+      tarifEur: tarif,
+      ruleGain12Eur,
+      ruleGain14Eur,
+      gainCentsSnapshot: r.gain_cents,
+      gainFromCordageEur: (gainMap[cordageLabel] ?? 0) / 100,
+    });
+
+    const gainCents = Math.round((Number(gainEur) || 0) * 100);
+
+    if (!outer.has(cordeur)) outer.set(cordeur, new Map());
+    const inner = outer.get(cordeur);
+
+    const prev = inner.get(cordageLabel) || { cordage: cordageLabel, count: 0, eurosCents: 0 };
+    prev.count += 1;
+    prev.eurosCents += gainCents;
+    inner.set(cordageLabel, prev);
+  }
+
+  // Convert Map -> objet simple pour usage facile
+  const obj = {};
+  for (const [cordeur, inner] of outer.entries()) {
+    obj[cordeur] = Array.from(inner.values()).sort(
+      (a, b) => b.eurosCents - a.eurosCents || a.cordage.localeCompare(b.cordage, "fr")
+    );
+  }
+  return obj;
+}, [doneRows, priceForRow, ruleGain12Eur, ruleGain14Eur, gainMap]);
+
+  const buildMailDraftForCordeur = useMemo(() => {
+  return (cordeurName) => {
+    const byCordeur = stats?.byCordeur ?? {};
+    const byCordageCordeur = stats?.byCordageCordeur ?? {};
+
+    const today = new Date().toLocaleDateString("fr-FR");
+    const total = Number(byCordeur?.[cordeurName] || 0);
+
+    // gain du cordeur
+    const g = (gainsCalc || []).find((x) => x.cordeur === cordeurName);
+    const gainEur = Number(g?.eurosCents || 0) / 100;
+
+    // détails cordages POUR ce cordeur uniquement
+    const detailLines = Object.entries(byCordageCordeur)
+      .filter(([k]) => String(k).includes(`• ${cordeurName}`))
+      .sort((a, b) => (b[1] || 0) - (a[1] || 0) || String(a[0]).localeCompare(String(b[0]), "fr"))
+      .map(([key, n]) => {
+        const cordage = String(key).split("•")[0].trim(); // "BG 65"
+        return `- ${cordage} : ${n}`;
+      });
+
+    const subject = `Compte rendu tournoi "${tournoiName}" — ${cordeurName} — ${today}`;
+    const gainCordageLines = (gainsByCordeurCordage?.[cordeurName] || []).map((x) => {
+    const eur = (Number(x.eurosCents || 0) / 100).toLocaleString("fr-FR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return `- ${x.cordage} : ${x.count} raq. | ${eur} €`;
+  });
+
+    const lines = [
+      `Bonjour,`,
+      ``,
+      `Voici ton compte rendu pour le tournoi "${tournoiName}" :`,
+      ``,
+      `Total raquettes cordées : ${total}`,
+      ``,
+      `Gain par cordage :`,
+      ...(gainCordageLines.length ? gainCordageLines : [`- —`]),
+      ``,
+      `Gain : ${gainEur.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+      ``,
+      `Détail par cordage :`,
+      ...(detailLines.length ? detailLines : [`- —`]),
+      ``,
+    ];
+
+    return { subject, body: lines.join("\n") };
+  };
+}, [stats, tournoiName, gainsCalc, gainsByCordeurCordage]);
+
   return (
     <div className="bg-white rounded-2xl border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -776,11 +886,32 @@ async function handlePickPayment(rowsToPay, modePicked) {
 
         <div className="rounded-xl border p-3">
           <div className="text-sm text-gray-600">Par cordeur</div>
-          <ul className="text-sm mt-1">
-            {Object.entries(stats.byCordeur).map(([k, v]) => (
-              <li key={k}>{k}: <b>{v}</b></li>
-            ))}
-          </ul>
+          <ul className="text-sm mt-1 space-y-1">
+  {Object.entries(stats?.byCordeur || {}).map(([k, v]) => (
+    <li key={k} className="flex items-center justify-between gap-2">
+      <span>
+        {k}: <b>{v}</b>
+      </span>
+
+      <button
+        type="button"
+        className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 whitespace-nowrap"
+        title={`Rédiger le mail pour ${k}`}
+        onClick={() => {
+          const draft = buildMailDraftForCordeur(k);
+          const mailto = buildMailto({
+            to: "", // si tu veux forcer un destinataire: "tonmail@xxx.com"
+            subject: draft.subject,
+            body: draft.body,
+          });
+          window.location.href = mailto;
+        }}
+      >
+        ✉️
+      </button>
+    </li>
+  ))}
+</ul>
         </div>
 
         <div className="rounded-xl border p-3">

@@ -14,16 +14,18 @@ export default function TournoiForm({ initial, onDone }) {
   const [optionsCordeurs, setOptionsCordeurs] = useState([]);
   const [selectedCordeurs, setSelectedCordeurs] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [useBlue, setUseBlue] = useState(false);
 
   const { createOrUpdate, getCordeurs } = useTournois();
 
   // sync quand on clique ✏️ depuis la liste
   useEffect(() => {
-    setTournoi(initial?.tournoi || "");
-    setStartDate(initial?.start_date || initial?.date || "");
-    setEndDate(initial?.end_date || initial?.start_date || initial?.date || "");
-    setInfos(initial?.infos || "");
-  }, [initial]);
+  setTournoi(initial?.tournoi || "");
+  setStartDate(initial?.start_date || initial?.date || "");
+  setEndDate(initial?.end_date || initial?.start_date || initial?.date || "");
+  setInfos(initial?.infos || "");
+  setUseBlue(!!initial?.use_blue);
+}, [initial]);
 
   // options cordeurs
   useEffect(() => {
@@ -53,6 +55,7 @@ export default function TournoiForm({ initial, onDone }) {
         // (optionnel pour compat avec anciens champs)
         date: startDate || null,
         infos,
+        use_blue: useBlue,
         cordeurIdsOrNames: selectedCordeurs,
       });
       onDone?.();
@@ -110,6 +113,20 @@ export default function TournoiForm({ initial, onDone }) {
             onChange={(e) => setEndDate(e.target.value)}
           />
         </div>
+
+        {/* Blue */}
+<div className="md:col-span-2 flex items-center gap-3 mt-1">
+  <input
+    id="use_blue"
+    type="checkbox"
+    checked={useBlue}
+    onChange={(e) => setUseBlue(e.target.checked)}
+    className="h-4 w-4"
+  />
+  <label htmlFor="use_blue" className="text-sm font-medium text-gray-700">
+    🟦 Utilisation de Blue
+  </label>
+</div>
 
         {/* Infos (2 colonnes) */}
         <div className="md:col-span-2">

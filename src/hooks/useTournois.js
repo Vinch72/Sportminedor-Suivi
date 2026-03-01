@@ -51,10 +51,10 @@ export function useTournois() {
 
   /**
    * Crée ou met à jour un tournoi + ses cordeurs
-   * @param {{initial?: {tournoi:string, start_date?:string, end_date?:string, date?:string, infos?:string}, tournoi:string, start_date?:string, end_date?:string, date?:string, infos?:string, cordeurIdsOrNames?: string[]}} params
+   * @param {{initial?: {tournoi:string, start_date?:string, end_date?:string, date?:string, infos?:string, use_blue?:boolean}, tournoi:string, start_date?:string, end_date?:string, date?:string, infos?:string, use_blue?:boolean, cordeurIdsOrNames?: string[]}} params
    */
   const createOrUpdate = useCallback(
-    async ({ initial, tournoi, start_date, end_date, date, infos, cordeurIdsOrNames }) => {
+    async ({ initial, tournoi, start_date, end_date, date, infos, use_blue, cordeurIdsOrNames }) => {
       if (!tournoi) throw new Error("Nom du tournoi requis");
 
       // Normalisation: tolère l'ancien champ 'date'
@@ -63,6 +63,7 @@ export function useTournois() {
         start_date: start_date || date || null,
         end_date: end_date || start_date || date || null,
         infos: infos || null,
+        use_blue: !!use_blue,
       };
 
       // Si renommage → vérifie unicité

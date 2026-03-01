@@ -109,7 +109,7 @@ function openTournoi(tournoiName) {
       <div className="text-2xl leading-none">🏆</div>
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-amber-900 truncate">
-          Tournoi à proximité : {t.title}
+          Tournoi à venir : {t.title}
         </div>
         <div className="text-sm text-amber-900/80">
           {t.lieu ? `${t.lieu} — ` : ""}

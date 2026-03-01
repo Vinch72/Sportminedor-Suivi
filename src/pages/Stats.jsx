@@ -212,6 +212,7 @@ export default function Stats() {
   const [openTournois, setOpenTournois] = useState(() => new Set());
   const [showAllClubs, setShowAllClubs] = useState(false);
   const [showAllTournois, setShowAllTournois] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(() => monthKey(new Date()));
 
   const { start, end, startISO, endISO } = useMemo(() => getSeasonBounds(new Date()), []);
   const { startISO: monthStartISO, endISO: monthEndISO } = useMemo(() => getMonthBounds(new Date()), []);
@@ -295,14 +296,25 @@ export default function Stats() {
 
   const totalMagasin = seasonDoneMagasin.length;
 
-  const monthDone = useMemo(() => rows.filter(r=>{ if(!isDone(r.statut_id)) return false; const d=rowISODate(r.date); return d>=monthStartISO&&d<=monthEndISO; }), [rows,monthStartISO,monthEndISO]);
+  const selectedMonthDone = useMemo(() => {
+  return rows.filter(r => {
+    if (!isDone(r.statut_id)) return false;
+    if (!r.date) return false;
+    return monthKey(new Date(r.date)) === selectedMonth;
+  });
+}, [rows, selectedMonth]);
 
-  const monthByCordage = useMemo(() => {
-    const m=new Map();
-    for(const r of monthDone){ const label=mapCordage.get(r.cordage_id)||r.cordage_id||"—"; m.set(label,(m.get(label)||0)+1); }
-    const arr=Array.from(m,([k,v])=>({cordage:k,count:v})).sort((a,b)=>b.count-a.count||a.cordage.localeCompare(b.cordage));
-    return { total: monthDone.length, items: arr.slice(0,5) };
-  }, [monthDone, mapCordage]);
+ const monthByCordage = useMemo(() => {
+  const m = new Map();
+  for (const r of selectedMonthDone) {
+    const label = mapCordage.get(r.cordage_id) || r.cordage_id || "—";
+    m.set(label, (m.get(label) || 0) + 1);
+  }
+  const arr = Array.from(m, ([k, v]) => ({ cordage: k, count: v }))
+    .sort((a, b) => b.count - a.count || a.cordage.localeCompare(b.cordage));
+
+  return { total: selectedMonthDone.length, items: arr.slice(0, 5) };
+}, [selectedMonthDone, mapCordage]);
 
   const seasonByCordeur = useMemo(() => {
     const m=new Map();
@@ -525,14 +537,47 @@ export default function Stats() {
 
           {/* Bar chart raquettes/mois */}
           <Card>
-            <CardHeader title="🏸 Raquettes cordées par mois" />
+            <CardHeader
+  title="🏸 Raquettes cordées par mois"
+  right={
+    <span style={{
+      fontSize: 11,
+      color: "#E10600",
+      background: "#ffe5e5",
+      borderRadius: 20,
+      padding: "2px 10px",
+      fontWeight: 600
+    }}>
+      {monthLabel(selectedMonth)}
+    </span>
+  }
+/>
             <div style={{ padding: "0 16px 16px" }}>
               <ResponsiveContainer width="100%" height={isMobile ? 170 : 190}>
                 <BarChart data={countByMonth} barSize={isMobile ? 14 : 20} margin={{ left: 0, right: 0 }}>
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#bbb" }} axisLine={false} tickLine={false} tickFormatter={monthLabel} />
                   <YAxis hide />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f7f7f8" }} />
-                  <Bar dataKey="count" fill="#E10600" radius={[5,5,0,0]} />
+                  <Bar
+  dataKey="count"
+  radius={[5, 5, 0, 0]}
+  onClick={(barData) => {
+    const mk = barData?.payload?.month;
+    if (mk) setSelectedMonth(mk);
+  }}
+  style={{ cursor: "pointer" }}
+>
+  {countByMonth.map((entry) => {
+    const isSelected = entry.month === selectedMonth;
+    return (
+      <PieCell
+        key={entry.month}
+        fill={isSelected ? "#8f0000" : "#E10600"}
+        opacity={isSelected ? 1 : 0.65}
+      />
+    );
+  })}
+</Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -540,7 +585,10 @@ export default function Stats() {
 
           {/* Donut cordages */}
           <Card>
-            <CardHeader title="📦 Cordages ce mois" right={`${monthByCordage.total} raquettes`} />
+            <CardHeader
+  title={`📦 Cordages — ${monthLabel(selectedMonth)}`}
+  right={`${monthByCordage.total} raquette${monthByCordage.total > 1 ? "s" : ""}`}
+/>
 <div
   style={{
     padding: isMobile ? "0 16px 16px" : "0 20px 20px",

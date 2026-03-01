@@ -17,7 +17,8 @@ const linkCls = ({ isActive }) =>
 const linkTextCls =
   "group-aria-[current=page]:underline group-aria-[current=page]:decoration-brand-red";
 
-export default function TopNav({ unlocked, onAddClick }) {
+export default function TopNav({ unlocked, onAddClick, role }) {
+  const isTournamentOnly = role === "tournament_only";
   const [open, setOpen] = useState(false);
 
   const { signOut } = useAuth();
@@ -31,41 +32,51 @@ export default function TopNav({ unlocked, onAddClick }) {
 
   // liens (définis une fois pour desktop + mobile)
   const Links = ({ onNavigate }) => (
-    <>
-      <NavLink to="/stats" className={linkCls} onClick={onNavigate} title="Statistiques">
-        <span aria-hidden>📊</span>
-        <span className={linkTextCls}>Statistiques</span>
-      </NavLink>
-      <NavLink to="/clients" className={linkCls} onClick={onNavigate} title="Clients">
-        <span aria-hidden>👥</span>
-        <span className={linkTextCls}>Clients</span>
-      </NavLink>
-      <NavLink to="/clubs" className={linkCls} onClick={onNavigate} title="Clubs">
-        <span aria-hidden>🛡️</span>
-        <span className={linkTextCls}>Clubs</span>
-      </NavLink>
-      <NavLink to="/tournois" className={linkCls} onClick={onNavigate} title="Tournois">
-        <span aria-hidden>🏆</span>
-        <span className={linkTextCls}>Tournois</span>
-      </NavLink>
-      <NavLink
-        to="/donnees"
-        className={linkCls}
-        onClick={onNavigate}
-        title={unlocked ? "Données (déverrouillé)" : "Données (verrouillé)"}
-      >
-        <span aria-hidden>{unlocked ? "🔓" : "🔒"}</span>
-        <span className={linkTextCls}>Données</span>
-      </NavLink>
-    </>
-  );
+  <>
+    {/* Toujours visible */}
+    <NavLink to="/tournois" className={linkCls} onClick={onNavigate} title="Tournois">
+      <span aria-hidden>🏆</span>
+      <span className={linkTextCls}>Tournois</span>
+    </NavLink>
+
+    {/* Caché si tournament_only */}
+    {!isTournamentOnly && (
+      <>
+        <NavLink to="/stats" className={linkCls} onClick={onNavigate} title="Statistiques">
+          <span aria-hidden>📊</span>
+          <span className={linkTextCls}>Statistiques</span>
+        </NavLink>
+
+        <NavLink to="/clients" className={linkCls} onClick={onNavigate} title="Clients">
+          <span aria-hidden>👥</span>
+          <span className={linkTextCls}>Clients</span>
+        </NavLink>
+
+        <NavLink to="/clubs" className={linkCls} onClick={onNavigate} title="Clubs">
+          <span aria-hidden>🛡️</span>
+          <span className={linkTextCls}>Clubs</span>
+        </NavLink>
+
+        <NavLink
+          to="/donnees"
+          className={linkCls}
+          onClick={onNavigate}
+          title={unlocked ? "Données (déverrouillé)" : "Données (verrouillé)"}
+        >
+          <span aria-hidden>{unlocked ? "🔓" : "🔒"}</span>
+          <span className={linkTextCls}>Données</span>
+        </NavLink>
+      </>
+    )}
+  </>
+);
 
   return (
     <header className="bg-brand-dark text-white">
       <div className="h-14 px-4 md:px-6 flex items-center gap-3">
         {/* Logo + titre (clique vers /suivi) */}
         <NavLink
-          to="/suivi"
+          to={isTournamentOnly ? "/tournois" : "/suivi"}
           className="inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-white/20 rounded-md"
           title="Accueil"
           onClick={() => setOpen(false)}
@@ -85,15 +96,17 @@ export default function TopNav({ unlocked, onAddClick }) {
         </nav>
 
         {/* Bouton Ajouter (desktop) */}
-        <div className="ml-auto hidden md:block">
-          <button
-            type="button"
-            onClick={onAddClick}
-            className="inline-flex items-center h-10 px-4 rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold shadow"
-          >
-            🏸 Ajouter une raquette
-          </button>
-        </div>
+        {!isTournamentOnly && (
+  <div className="ml-auto hidden md:block">
+    <button
+      type="button"
+      onClick={onAddClick}
+      className="inline-flex items-center h-10 px-4 rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold shadow"
+    >
+      🏸 Ajouter une raquette
+    </button>
+  </div>
+)}
 
       <button
         onClick={handleLogout}
@@ -131,16 +144,18 @@ export default function TopNav({ unlocked, onAddClick }) {
         <div className="md:hidden border-t border-white/10">
           <nav className="px-3 py-2 flex flex-col gap-1">
             <Links onNavigate={() => setOpen(false)} />
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onAddClick?.();
-              }}
-              className="mt-2 inline-flex items-center justify-center h-10 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold"
-            >
-              🏸 Ajouter une raquette
-            </button>
+            {!isTournamentOnly && (
+  <button
+    type="button"
+    onClick={() => {
+      setOpen(false);
+      onAddClick?.();
+    }}
+    className="mt-2 inline-flex items-center justify-center h-10 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold"
+  >
+    🏸 Ajouter une raquette
+  </button>
+)}
           </nav>
         </div>
       )}
