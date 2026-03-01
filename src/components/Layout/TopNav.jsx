@@ -33,12 +33,6 @@ export default function TopNav({ unlocked, onAddClick, role }) {
   // liens (définis une fois pour desktop + mobile)
   const Links = ({ onNavigate }) => (
   <>
-    {/* Toujours visible */}
-    <NavLink to="/tournois" className={linkCls} onClick={onNavigate} title="Tournois">
-      <span aria-hidden>🏆</span>
-      <span className={linkTextCls}>Tournois</span>
-    </NavLink>
-
     {/* Caché si tournament_only */}
     {!isTournamentOnly && (
       <>
@@ -56,17 +50,26 @@ export default function TopNav({ unlocked, onAddClick, role }) {
           <span aria-hidden>🛡️</span>
           <span className={linkTextCls}>Clubs</span>
         </NavLink>
-
-        <NavLink
-          to="/donnees"
-          className={linkCls}
-          onClick={onNavigate}
-          title={unlocked ? "Données (déverrouillé)" : "Données (verrouillé)"}
-        >
-          <span aria-hidden>{unlocked ? "🔓" : "🔒"}</span>
-          <span className={linkTextCls}>Données</span>
-        </NavLink>
       </>
+    )}
+
+    {/* Toujours visible (et à la bonne place) */}
+    <NavLink to="/tournois" className={linkCls} onClick={onNavigate} title="Tournois">
+      <span aria-hidden>🏆</span>
+      <span className={linkTextCls}>Tournois</span>
+    </NavLink>
+
+    {/* Caché si tournament_only */}
+    {!isTournamentOnly && (
+      <NavLink
+        to="/donnees"
+        className={linkCls}
+        onClick={onNavigate}
+        title={unlocked ? "Données (déverrouillé)" : "Données (verrouillé)"}
+      >
+        <span aria-hidden>{unlocked ? "🔓" : "🔒"}</span>
+        <span className={linkTextCls}>Données</span>
+      </NavLink>
     )}
   </>
 );
