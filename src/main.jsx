@@ -20,6 +20,7 @@ import Clubs from "./pages/Clubs";
 import Stats from "./pages/Stats";
 import TournoisPage from "./pages/TournoisPage";
 import Donnees from "./pages/Donnees";
+import TournoiPublic from "./pages/TournoiPublic";
 
 import "./index.css";
 import logo from "./assets/sportminedor-logo.png";
@@ -27,11 +28,9 @@ import logo from "./assets/sportminedor-logo.png";
 import TopNav from "./components/Layout/TopNav";
 import { supabase } from "./utils/supabaseClient";
 
-// On n'utilise pas CenteredModal ici pour éviter la modale dans la modale
 import SuiviForm from "./components/SuiviForm";
 import { isDonneesUnlocked, DONNEES_UNLOCK_KEY } from "./components/PasscodeGate";
 
-// NavLink : icônes NON soulignées, seul le texte l'est quand actif
 const linkCls = ({ isActive }) =>
   [
     "group inline-flex items-center gap-2",
@@ -43,7 +42,6 @@ const linkCls = ({ isActive }) =>
 const linkTextCls =
   "group-aria-[current=page]:underline group-aria-[current=page]:decoration-brand-red";
 
-// Modale inline : overlay + CARTE blanche (header intégré) + contenu
 function OverlayModal({ open, title, onClose, children }) {
   if (!open) return null;
   return (
@@ -53,21 +51,17 @@ function OverlayModal({ open, title, onClose, children }) {
       aria-modal="true"
       onClick={onClose}
     >
-      {/* overlay */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]" />
-      {/* carte */}
       <div
         className="relative z-[10000] w-full max-w-5xl mx-4 max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-          {/* header */}
           <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
             <h2 className="text-xl font-semibold text-brand-dark flex items-center gap-2 leading-none">
               <span aria-hidden>🏸</span>
               <span>Ajouter une raquette</span>
             </h2>
-
             <button
               type="button"
               aria-label="Fermer"
@@ -77,8 +71,6 @@ function OverlayModal({ open, title, onClose, children }) {
               ×
             </button>
           </div>
-
-          {/* contenu : on laisse SuiviForm tel quel ; overflow-hidden évite l'effet “carte dans carte” */}
           <div className="p-4 md:p-6 overflow-y-auto max-h-[calc(85vh-72px)]">
             {children}
           </div>
@@ -90,7 +82,8 @@ function OverlayModal({ open, title, onClose, children }) {
 
 function Shell() {
   const location = useLocation();
-  const isLoginPage = location.pathname === "/login";
+  const isLoginPage  = location.pathname === "/login";
+  const isPublicPage = location.pathname === "/login" || location.pathname === "/tournoi";
 
   const [unlocked, setUnlocked] = useState(isDonneesUnlocked());
   const [addOpen, setAddOpen] = useState(false);
@@ -101,7 +94,6 @@ function Shell() {
 
   useEffect(() => {
     if (!addOpen) return;
-
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -109,7 +101,6 @@ function Shell() {
     };
   }, [addOpen]);
 
-  // maj cadenas Données en live (storage/focus)
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === DONNEES_UNLOCK_KEY) setUnlocked(isDonneesUnlocked());
@@ -124,44 +115,40 @@ function Shell() {
   }, []);
 
   useEffect(() => {
-  let alive = true;
+    let alive = true;
 
-  const loadRole = async (user) => {
-    if (!user) {
-      if (alive) setRole("anonymous");
-      return;
-    }
+    const loadRole = async (user) => {
+      if (!user) {
+        if (alive) setRole("anonymous");
+        return;
+      }
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (alive) setRole(prof?.role ?? "user");
+    };
 
-    const { data: prof, error } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
+    supabase.auth.getUser().then(({ data }) => loadRole(data?.user));
 
-    // si pas de ligne profile → accès normal
-    if (alive) setRole(prof?.role ?? "user");
-  };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      loadRole(session?.user ?? null);
+    });
 
-  // 1) rôle au chargement
-  supabase.auth.getUser().then(({ data }) => loadRole(data?.user));
+    return () => {
+      alive = false;
+      subscription?.unsubscribe();
+    };
+  }, []);
 
-  // 2) rôle à chaque login/logout
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-    loadRole(session?.user ?? null);
-  });
+  if (!isLoginPage && role && isTournamentOnly && !isTournoiPath) {
+    return <Navigate to="/tournois" replace />;
+  }
 
-  return () => {
-    alive = false;
-    subscription?.unsubscribe();
-  };
-}, []);
-if (!isLoginPage && role && isTournamentOnly && !isTournoiPath) {
-  return <Navigate to="/tournois" replace />;
-}
   return (
     <>
-      {/* Barre de navigation (remplacée par le composant dédié) */}
-      {!isLoginPage && (
+      {!isPublicPage && (
         <TopNav
           unlocked={unlocked}
           onAddClick={isTournamentOnly ? undefined : () => setAddOpen(true)}
@@ -169,25 +156,24 @@ if (!isLoginPage && role && isTournamentOnly && !isTournoiPath) {
         />
       )}
 
-      {/* Routes */}
       <Routes>
         {/* Public */}
-        <Route path="/login" element={<Login />} />
+        <Route path="/login"   element={<Login />} />
+        <Route path="/tournoi" element={<TournoiPublic />} />
 
-        {/* Private: tout le reste */}
+        {/* Private */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/suivi" element={<App />} />
-          <Route path="/" element={<Navigate to="/suivi" replace />} />
-          <Route path="/stats" element={<Stats />} />
-          <Route path="/donnees" element={<Donnees />} />
+          <Route path="/suivi"    element={<App />} />
+          <Route path="/"         element={<Navigate to="/suivi" replace />} />
+          <Route path="/stats"    element={<Stats />} />
+          <Route path="/donnees"  element={<Donnees />} />
           <Route path="/tournois" element={<TournoisPage />} />
-          <Route path="/clients" element={<Clients />} />
-          <Route path="/clubs" element={<Clubs />} />
+          <Route path="/clients"  element={<Clients />} />
+          <Route path="/clubs"    element={<Clubs />} />
         </Route>
       </Routes>
 
-      {/* Modale : une seule carte, titre intégré, pas de bouton “OK” séparé */}
-      {!isLoginPage && !isTournamentOnly && (
+      {!isPublicPage && !isTournamentOnly && (
         <OverlayModal
           open={addOpen}
           title="🏸 Ajouter une raquette"

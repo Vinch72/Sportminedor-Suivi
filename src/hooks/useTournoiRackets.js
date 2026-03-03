@@ -32,7 +32,8 @@ export function useTournoiRackets(tournoiName) {
           raquette,
           client:clients(id, nom, prenom),
           cordeur:cordeur(cordeur),
-          cordage:cordages(cordage, is_base)
+          cordage:cordages(cordage, is_base),
+          notes
         `)
         .eq("tournoi", tournoiName)
         .order("created_at", { ascending: false })
@@ -70,6 +71,15 @@ export function useTournoiRackets(tournoiName) {
       supabase.removeChannel(channel);
     };
   }, [tournoiName, load]);
+
+  // Polling toutes les 20 secondes
+useEffect(() => {
+  if (!tournoiName) return;
+  const interval = setInterval(() => {
+    load();
+  }, 20000);
+  return () => clearInterval(interval);
+}, [tournoiName, load]);
 
   // Lookups (clubs + tarif matrix)
   useEffect(() => {
