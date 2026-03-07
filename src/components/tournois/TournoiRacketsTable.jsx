@@ -7,8 +7,8 @@
   import TournoiRacketForm from "./TournoiRacketForm";
   import { computeGainCordeur } from "../../utils/computeGainCordeur";
 
-  export default function TournoiRacketsTable({ tournoiName, locked = false, onFinalize, onUnlock }) {
-  const { rows, loading, remove, exportAllToSuivi, updateStatut, stats, revenuePaid, load, priceForRow } =
+  export default function TournoiRacketsTable({ tournoiName, locked = false, onFinalize, onUnlock, onOpenVentes }) {
+    const { rows, loading, remove, exportAllToSuivi, updateStatut, stats, revenuePaid, load, priceForRow } =
     useTournoiRackets(tournoiName);
 
     const rowsRef = useRef(rows);
@@ -620,15 +620,22 @@
   }, [stats, tournoiName, gainsCalc, gainsByCordeurCordage]);
 
     return (
-      <div className="bg-white rounded-2xl border p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-lg font-semibold">Suivi du tournoi</div>
-          <div className="flex items-center gap-2">
-            <button onClick={onExportAll} disabled={exporting} className="btn-red">
-              Ajouter toutes au Suivi
-            </button>
-          </div>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+  <div className="text-lg font-semibold">Suivi du tournoi</div>
+  <div className="flex items-center gap-2">
+    {onOpenVentes && (
+      <button
+        type="button"
+        onClick={onOpenVentes}
+        className="h-9 px-3 rounded-xl border text-sm font-medium flex items-center gap-1.5 bg-white text-gray-700 hover:bg-gray-50"
+      >
+        🛒 Ventes
+      </button>
+    )}
+    <button onClick={onExportAll} disabled={exporting} className="btn-red">
+      Ajouter toutes au Suivi
+    </button>
+  </div>
 
       {/* Lignes */}
   <div ref={scrollRef} className="mt-3 space-y-2">

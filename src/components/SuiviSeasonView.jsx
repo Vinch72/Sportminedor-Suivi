@@ -1081,35 +1081,7 @@ for (const r of done) {
         const pct = Math.round(v / max * 100);
         return (
           <div key={k} className="flex items-center gap-2">
-            <button
-              type="button"
-              className="text-xs text-[#E10600] hover:underline w-20 truncate text-left font-semibold"
-              onClick={() => {
-                // Calcul détail par cordage pour ce cordeur
-                const lignes = done.filter(r => {
-                  const nom = (mapCordeur.get(r.cordeur_id) || r.cordeur_id || "").trim();
-                  return nom === k;
-                });
-                const byCordage = {};
-                for (const r of lignes) {
-                  const lieu = r.lieu_id || r.club_id || r.club;
-                  const estMagasin = isMagasin(lieu);
-                  const nom = (mapCordeur.get(r.cordeur_id) || r.cordeur_id || "").trim();
-                  const eligible = nom && remunMagasinSet.has(U(nom));
-                  const gainCents = (estMagasin && eligible)
-                    ? computeGainMagasinCents(r, cordagesById)
-                    : 0;
-                  const cordageLabel = r.cordage_id || "—";
-                  if (!byCordage[cordageLabel]) byCordage[cordageLabel] = { count: 0, gainCents: 0 };
-                  byCordage[cordageLabel].count += 1;
-                  byCordage[cordageLabel].gainCents += gainCents;
-                }
-                const totalGainCents = Object.values(byCordage).reduce((s, x) => s + x.gainCents, 0);
-                setCordeurDetailDialog({ cordeur: k, byCordage, totalGainCents, totalCount: v });
-              }}
-            >
-              {k}
-            </button>
+            <span className="text-xs text-gray-700 w-20 truncate">{k}</span>
             <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
               <div className="h-full rounded-full bg-[#E10600] opacity-70" style={{ width: `${pct}%` }} />
             </div>
@@ -1131,13 +1103,47 @@ for (const r of done) {
       ) : (
         <div className="flex flex-col gap-1.5 mt-1">
           {Object.entries(gainsByCordeur)
-            .sort(([, a], [, b]) => b - a)
-            .map(([k, v]) => (
-              <div key={k} className="flex items-center justify-between">
-                <span className="text-xs text-gray-600">{k}</span>
-                <span className="text-xs font-bold text-[#E10600]">{euro(v / 100)}</span>
-              </div>
-            ))}
+  .sort(([, a], [, b]) => b - a)
+  .map(([k, v]) => (
+    <div key={k} className="flex items-center justify-between">
+      <button
+        type="button"
+        className="text-xs text-[#E10600] font-semibold hover:underline text-left"
+        onClick={() => {
+          const lignes = done.filter(r => {
+            const nom = (mapCordeur.get(r.cordeur_id) || r.cordeur_id || "").trim();
+            return nom === k;
+          });
+          const magasinMap = {};
+          let magasinCount = 0, magasinGainCents = 0;
+          for (const r of lignes) {
+            const lieu = r.lieu_id || r.club_id || r.club;
+            if (!isMagasin(lieu)) continue;
+            const nom = (mapCordeur.get(r.cordeur_id) || r.cordeur_id || "").trim();
+            const eligible = nom && remunMagasinSet.has(U(nom));
+            const gainCents = eligible ? computeGainMagasinCents(r, cordagesById) : 0;
+            const key = (r.cordage_id || "—") + (r.fourni ? "_fourni" : "");
+            if (!magasinMap[key]) magasinMap[key] = { cordage: r.cordage_id || "—", fourni: !!r.fourni, count: 0, gainCents: 0 };
+            magasinMap[key].count += 1;
+            magasinMap[key].gainCents += gainCents;
+            magasinCount += 1;
+            magasinGainCents += gainCents;
+          }
+          setCordeurDetailDialog({
+            cordeur: k,
+            totalCount: magasinCount,
+            totalGainCents: magasinGainCents,
+            magasin: Object.values(magasinMap).sort((a, b) => b.count - a.count),
+            magasinCount,
+            magasinGainCents,
+          });
+        }}
+      >
+        {k}
+      </button>
+      <span className="text-xs font-bold text-[#E10600]">{euro(v / 100)}</span>
+    </div>
+  ))}
         </div>
       )}
     </div>
@@ -1491,12 +1497,13 @@ for (const r of done) {
 )}
 {/* Modale détail cordeur */}
 {cordeurDetailDialog && (
-  <div className="fixed inset-0 z-[2100] flex items-center justify-center bg-black/40"
+  <div className="fixed inset-0 z-[2100] flex items-center justify-center bg-black/40 p-4"
     onClick={() => setCordeurDetailDialog(null)}>
-    <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-5"
+    <div className="w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90dvh]"
       onClick={(e) => e.stopPropagation()}>
 
-      <div className="flex items-start gap-3 mb-4">
+      {/* Header fixe */}
+      <div className="flex items-start gap-3 p-5 pb-3 shrink-0">
         <div className="text-2xl leading-none">🧑‍🔧</div>
         <div className="flex-1">
           <div className="text-lg font-semibold">{cordeurDetailDialog.cordeur}</div>
@@ -1505,41 +1512,56 @@ for (const r of done) {
         <button className="text-gray-500 hover:text-black" onClick={() => setCordeurDetailDialog(null)}>✕</button>
       </div>
 
-      <div className="border rounded-xl overflow-hidden">
-        {/* Header */}
-        <div className="grid grid-cols-3 px-4 py-2 bg-gray-50 border-b text-xs font-700 uppercase tracking-wider text-gray-400">
-          <span>Cordage</span>
-          <span className="text-center">Qté</span>
-          <span className="text-right">Gain</span>
-        </div>
-        {/* Lignes */}
-        {Object.entries(cordeurDetailDialog.byCordage)
-          .sort((a, b) => b[1].count - a[1].count)
-          .map(([cordage, { count, gainCents }]) => (
-            <div key={cordage} className="grid grid-cols-3 px-4 py-3 border-b last:border-b-0 text-sm">
-              <span className="font-medium truncate">{cordage}</span>
-              <span className="text-center text-gray-700">{count}</span>
-              <span className="text-right font-semibold text-gray-900">
-                {gainCents > 0 ? euro(gainCents / 100) : "—"}
-              </span>
+      {/* Contenu scrollable */}
+      <div className="px-5 overflow-y-auto flex-1 min-h-0">
+
+        {/* Section Magasin */}
+        {cordeurDetailDialog.magasin.length > 0 && (
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-700 text-gray-700">🏪 Magasin</span>
+              <span className="text-xs text-gray-400">({cordeurDetailDialog.magasinCount} raq.)</span>
             </div>
-          ))}
-        {/* Total */}
-        <div className="grid grid-cols-3 px-4 py-3 bg-gray-50 border-t text-sm font-bold">
-          <span>Total</span>
-          <span className="text-center">{cordeurDetailDialog.totalCount}</span>
-          <span className="text-right text-[#E10600]">
-            {cordeurDetailDialog.totalGainCents > 0 ? euro(cordeurDetailDialog.totalGainCents / 100) : "—"}
-          </span>
+            <div className="border rounded-xl overflow-hidden">
+              <div className="grid grid-cols-3 px-4 py-2 bg-gray-50 border-b text-xs font-semibold uppercase tracking-wider text-gray-400">
+                <span>Cordage</span>
+                <span className="text-center">Qté</span>
+                <span className="text-right">Gain</span>
+              </div>
+              {cordeurDetailDialog.magasin.map(({ cordage, fourni, count, gainCents }) => (
+                <div key={cordage + (fourni ? "_fourni" : "")} className="grid grid-cols-3 px-4 py-2.5 border-b last:border-b-0 text-sm">
+                  <span className="font-medium truncate">
+                    {cordage}
+                    {fourni && <span className="ml-1 text-xs text-amber-600 font-normal">• Fourni</span>}
+                  </span>
+                  <span className="text-center text-gray-700">{count}</span>
+                  <span className="text-right font-semibold">{gainCents > 0 ? euro(gainCents / 100) : "—"}</span>
+                </div>
+              ))}
+              <div className="grid grid-cols-3 px-4 py-2.5 bg-gray-50 border-t text-sm font-bold">
+                <span>Sous-total</span>
+                <span className="text-center">{cordeurDetailDialog.magasinCount}</span>
+                <span className="text-right text-[#E10600]">{cordeurDetailDialog.magasinGainCents > 0 ? euro(cordeurDetailDialog.magasinGainCents / 100) : "—"}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Total global */}
+        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border mt-1 mb-3">
+          <span className="font-bold text-sm">Total</span>
+          <span className="font-bold text-sm">{cordeurDetailDialog.totalCount} raq.</span>
+          <span className="font-bold text-[#E10600]">{cordeurDetailDialog.totalGainCents > 0 ? euro(cordeurDetailDialog.totalGainCents / 100) : "—"}</span>
         </div>
+
       </div>
 
-      <div className="mt-4 flex justify-end">
+      {/* Footer fixe */}
+      <div className="p-5 pt-3 shrink-0 flex justify-end border-t">
         <button className="px-4 h-10 rounded-xl border text-gray-700 hover:bg-gray-50"
-          onClick={() => setCordeurDetailDialog(null)}>
-          Fermer
-        </button>
+          onClick={() => setCordeurDetailDialog(null)}>Fermer</button>
       </div>
+
     </div>
   </div>
 )}

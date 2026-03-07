@@ -107,7 +107,7 @@ function IconQR() {
   );
 }
 
-export default function TournoiList({ onEdit, onOpen, query = "" }) {
+export default function TournoiList({ onEdit, onOpen, onOpenVentes, query = "" }) {
   const [rows, setRows] = useState([]);
   const [cordeursBy, setCordeursBy] = useState({});
   const [err, setErr] = useState("");
@@ -442,6 +442,10 @@ export default function TournoiList({ onEdit, onOpen, query = "" }) {
                                   style={{ backgroundColor: "#E10600", color: "#fff" }}
                                 >
                                   Ouvrir
+                                </button>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); onOpenVentes?.(t); }}
+                                  className="inline-flex items-center gap-1.5 px-4 h-10 rounded-xl border border-gray-200 text-gray-700 text-sm hover:bg-gray-50">
+                                  🛒 Ventes
                                 </button>
                               </div>
                             </div>

@@ -3,12 +3,14 @@ import { useEffect, useState } from "react";
 import TournoiForm from "../components/tournois/TournoiForm";
 import TournoiList from "../components/tournois/TournoiList";
 import TournoiDetailModal from "../components/tournois/TournoiDetailModal";
+import TournoiVentesModal from "../components/tournois/TournoiVentesModal";
 import logo from "../assets/sportminedor-logo.png";
 
 export default function TournoisPage() {
   const [editing, setEditing] = useState(null);   // {tournoi, start_date, end_date, infos}
   const [opened, setOpened] = useState(null);     // idem
   const [query, setQuery] = useState("");         // 🔎 recherche compacte
+  const [openedVentes, setOpenedVentes] = useState(null);
 
   useEffect(() => {
     const onOpen = (e) => {
@@ -52,18 +54,18 @@ export default function TournoisPage() {
       {/* Liste filtrée côté client */}
       <div className="mt-4">
         <TournoiList
-          query={query}
-          onEdit={(row) => {
-            setEditing(row);
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-          onOpen={(row) => setOpened(row)}
-        />
+  query={query}
+  onEdit={(row) => {
+    setEditing(row);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }}
+  onOpen={(row) => { setOpened(row); }}
+  onOpenVentes={(row) => { setOpenedVentes(row); }}
+/>
       </div>
 
-      {opened && (
-        <TournoiDetailModal tournoi={opened} onClose={() => setOpened(null)} />
-      )}
+      {opened && <TournoiDetailModal tournoi={opened} onClose={() => setOpened(null)} />}
+      {openedVentes && <TournoiVentesModal tournoi={openedVentes} onClose={() => setOpenedVentes(null)} />}
     </div>
   );
 }

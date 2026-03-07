@@ -72,15 +72,6 @@ export function useTournoiRackets(tournoiName) {
     };
   }, [tournoiName, load]);
 
-  // Polling toutes les 20 secondes
-useEffect(() => {
-  if (!tournoiName) return;
-  const interval = setInterval(() => {
-    load();
-  }, 20000);
-  return () => clearInterval(interval);
-}, [tournoiName, load]);
-
   // Lookups (clubs + tarif matrix)
   useEffect(() => {
     (async () => {
