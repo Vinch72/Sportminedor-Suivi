@@ -611,10 +611,7 @@
         `Gain par cordage :`,
         ...(gainCordageLines.length ? gainCordageLines : [`- —`]),
         ``,
-        `Gain : ${gainEur.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
-        ``,
-        `Détail par cordage :`,
-        ...(detailLines.length ? detailLines : [`- —`]),
+        `Gain Total : ${gainEur.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
         ``,
       ];
 

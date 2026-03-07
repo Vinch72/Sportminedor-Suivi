@@ -124,7 +124,7 @@ export default function TournoiForm({ initial, onDone }) {
     className="h-4 w-4"
   />
   <label htmlFor="use_blue" className="text-sm font-medium text-gray-700">
-    🟦 Utilisation de Blue
+    🔵 Utilisation de Blue
   </label>
 </div>
 

@@ -422,7 +422,7 @@ export default function TournoiList({ onEdit, onOpen, query = "" }) {
 
                                 {t.use_blue && (
                                   <span className="shrink-0 text-xs px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-100 whitespace-nowrap">
-                                    🟦 Utilisation de Blue
+                                    🔵 Utilisation de Blue
                                   </span>
                                 )}
 
