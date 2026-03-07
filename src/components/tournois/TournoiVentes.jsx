@@ -78,6 +78,24 @@ function ReglementBadge({ mode, paymentModes }) {
   );
 }
 
+function NoteText({ text }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > 60;
+  return (
+    <div className="text-xs text-blue-600">
+      📝 {isLong && !expanded ? `${text.slice(0, 60)}…` : text}
+      {isLong && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+          className="ml-1 underline text-blue-400 hover:text-blue-600"
+        >
+          {expanded ? "moins" : "plus"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Ligne individuelle desktop ──
 function VenteLigne({ v, onEdit, onDelete, paymentModes }) {
   const t = TYPE_MAP[v.type_produit] || { emoji: "📦", label: v.type_produit };
@@ -89,7 +107,7 @@ function VenteLigne({ v, onEdit, onDelete, paymentModes }) {
       <div className="min-w-0">
         <div className="font-semibold truncate"><span className="mr-1">{t.emoji}</span>{v.nom_produit}</div>
         {(v.couleur || v.taille) && <div className="text-xs text-gray-400 truncate">{[v.couleur, v.taille].filter(Boolean).join(" • ")}</div>}
-        {v.notes && <div className="text-xs text-blue-600 truncate">📝 {v.notes}</div>}
+        {v.notes && <NoteText text={v.notes} />}
       </div>
       <span className="truncate text-gray-600">{t.label}</span>
       <span className="text-right">{euro(v.prix_unitaire_cents)}</span>
@@ -118,7 +136,7 @@ function VenteLigneMobile({ v, onEdit, onDelete, paymentModes }) {
           </div>
           <div className="font-semibold truncate">{v.nom_produit}</div>
           {(v.couleur || v.taille) && <div className="text-xs text-gray-400">{[v.couleur, v.taille].filter(Boolean).join(" • ")}</div>}
-          {v.notes && <div className="text-xs text-blue-600">📝 {v.notes}</div>}
+          {v.notes && <NoteText text={v.notes} />}
         </div>
         <div className="shrink-0 text-right">
           <div className="text-base font-bold text-gray-900">{euro(v.prix_final_cents)}</div>
