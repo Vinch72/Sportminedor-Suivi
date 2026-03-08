@@ -1,5 +1,4 @@
 // src/components/ui/ConfirmModal.jsx
-console.log("CONFIRM MODAL JSX LOADED");
 
 export default function ConfirmModal({
   open,

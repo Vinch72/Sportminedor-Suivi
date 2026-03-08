@@ -4,7 +4,6 @@ import TournoiVentes from "./TournoiVentes";
 export default function TournoiVentesModal({ tournoi, onClose }) {
   if (!tournoi) return null;
   const tournoiName = typeof tournoi === "string" ? tournoi : tournoi?.tournoi;
-  console.log("tournoiName dans VentesModal:", tournoiName);
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose}>

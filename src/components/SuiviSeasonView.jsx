@@ -119,7 +119,6 @@ async function sendSmsViaServer({ to, content }) {
   });
 
   const data = await r.json().catch(() => ({}));
-  console.log("SMS API status:", r.status, "payload:", data);
 
   if (!r.ok) {
     const msg =

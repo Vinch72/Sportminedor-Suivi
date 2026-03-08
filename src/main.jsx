@@ -10,6 +10,8 @@ import {
   useLocation,
 } from "react-router-dom";
 
+import MentionsLegales from "./pages/MentionsLegales";
+
 import { AuthProvider } from "./auth/AuthProvider";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import Login from "./pages/Login";
@@ -168,6 +170,7 @@ function Shell() {
           <Route path="/stats"    element={<Stats />} />
           <Route path="/donnees"  element={<Donnees />} />
           <Route path="/tournois" element={<TournoisPage />} />
+          <Route path="/mentions-legales" element={<MentionsLegales />} />
           <Route path="/clients"  element={<Clients />} />
           <Route path="/clubs"    element={<Clubs />} />
         </Route>

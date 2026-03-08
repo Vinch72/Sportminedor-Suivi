@@ -300,6 +300,12 @@ export default function TournoiPublic() {
                   <button type="submit" disabled={phoneLoading} className="tp-btn red full">
                     {phoneLoading ? "Recherche..." : "Continuer →"}
                   </button>
+                  <p className="text-xs text-gray-400 text-center mt-3">
+                    En continuant, vous acceptez que vos données (nom, téléphone) soient 
+                    collectées par <b>Sportminedor</b> pour la gestion de votre cordage. 
+                    Conformément au RGPD, vous pouvez demander leur suppression à 
+                    <a href="mailto:franck.dessaux@sportminedor.com" className="underline"> franck.dessaux@sportminedor.com</a>.
+                  </p>
                 </form>
               )}
 
@@ -501,7 +507,9 @@ export default function TournoiPublic() {
             </div>
           </div>
 
-          <div className="tp-footer">Sportminedor — Suivi cordage</div>
+          <div className="tp-footer">
+            Sportminedor — Suivi cordage · <a href="/mentions-legales" style={{ color: "#a1a1aa", textDecoration: "underline" }}>Mentions légales</a>
+          </div>
         </div>
       </div>
     </>
