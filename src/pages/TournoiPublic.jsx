@@ -186,8 +186,9 @@ export default function TournoiPublic() {
   async function handleNewClientSubmit(e) {
     e.preventDefault();
     setClientErr("");
-    if (!newClient.nom.trim())    { setClientErr("Nom requis."); return; }
-    if (!newClient.prenom.trim()) { setClientErr("Prénom requis."); return; }
+    if (!newClient.nom.trim())    { setClientErr("Le nom est requis."); return; }
+    if (!newClient.prenom.trim()) { setClientErr("Le prénom est requis."); return; }
+    if (!newClient.club_id)       { setClientErr("Le club est requis."); return; }
     setSavingClient(true);
     try {
       const { data, error } = await supabase.from("clients").insert({
@@ -350,7 +351,10 @@ export default function TournoiPublic() {
               {step === STEP.RACKET && client && (
                 <form onSubmit={(e) => {
                   e.preventDefault();
-                  if (!form.cordage_id) { setFormErr("Choisis un cordage."); return; }
+                  if (!form.raquette.trim())  { setFormErr("Le modèle de raquette est requis."); return; }
+                  if (!client.club)           { setFormErr("Le club est requis."); return; }
+                  if (!form.cordage_id)       { setFormErr("Le cordage est requis."); return; }
+                  if (!form.tension.trim())   { setFormErr("La tension est requise."); return; }
                   setFormErr(""); setStep(STEP.CONFIRM);
                 }}>
                   <div className="tp-client-card">

@@ -7,28 +7,78 @@ import logo from "../assets/sportminedor-logo.png";
 // Optionnel si tu ajoutes la mascotte en local
 // import mascot from "../assets/sportminedor-mascot.png";
 
+function getContextualMessage() {
+  const now = new Date();
+  const hour = now.getHours();
+  const day = now.getDay(); // 0=dim, 1=lun, 2=mar, ..., 6=sam
+
+  // Matin
+  if (hour >= 6 && hour < 12) {
+    if (day === 0) return "😴 Dimanche matin ? Même l'app se repose le dimanche... App by Vinch 🫡";
+    if (day === 1) return "🛋️ Lundi, jour off ! T'as oublié que t'es pas censé bosser ?";
+    if (day === 2) return "☕ Mardi matin, c'est reparti ! La semaine commence, les raquettes aussi.";
+    if (day === 6) return "🏁 Samedi matin, dernier jour ! On finit en beauté 💪";
+    return "🌅 Bonne matinée ! Les raquettes vont pas se corder toutes seules...";
+  }
+  // Après-midi
+  if (hour >= 12 && hour < 18) {
+    if (day === 0) return "☀️ Dimanche aprèm, repos total ! Pourquoi t'es là toi ?";
+    if (day === 1) return "🛋️ Lundi aprèm, profite ! Demain ça repart.";
+    if (day === 3) return "🐪 Mercredi, mi-semaine ! La descente commence, tiens bon.";
+    if (day === 5) return "🍾 Vendredi aprèm, avant-dernière ligne droite. Presque le week-end !";
+    if (day === 6) return "🏆 Samedi aprèm, la fin approche ! Encore quelques raquettes et c'est plié.";
+    return "⚡ Après-midi productive en vue. Les cordages t'attendent !";
+  }
+  // Soirée
+  if (hour >= 18 && hour < 22) {
+    if (day === 6) return "🎊 Samedi soir, semaine terminée ! T'as mérité ton week-end. GG 🫡";
+    if (day === 2) return "🌙 Mardi soir, bonne première journée ! Vinch est fier de toi.";
+    if (day === 5) return "🌆 Vendredi soir boulot ? Dévoué(e) ! Demain c'est le dernier.";
+    return "🌆 Soirée boulot ? Respect. App made with ❤️ by Vinch";
+  }
+  // Nuit
+  if (hour >= 22 || hour < 6) {
+    return "🦉 Tu cogites la nuit ? L'app est là 24h/24 mais toi t'as besoin de dormir 😄";
+  }
+
+  return "👋 Bienvenue sur Sportminedor Suivi App !";
+}
+
 export default function Login() {
   const nav = useNavigate();
   const { signInWithPassword, session, loading } = useAuth();
 
-  const [email, setEmail] = useState("");
+  const safeStorage = {
+    get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+    set(key, val) { try { localStorage.setItem(key, val); } catch {} },
+    remove(key) { try { localStorage.removeItem(key); } catch {} },
+  };
+
+  const [email, setEmail] = useState(() => safeStorage.get("sm_saved_email") || "");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState(null);
-
+  const [rememberMe, setRememberMe] = useState(() => safeStorage.get("sm_remember_email") === "1");
   useEffect(() => {
     if (!loading && session) nav("/suivi", { replace: true });
   }, [session, loading, nav]);
 
   async function onSubmit(e) {
-    e.preventDefault();
-    setMsg(null);
-    try {
-      await signInWithPassword(email, password);
-      nav("/suivi", { replace: true });
-    } catch (err) {
-      setMsg(err.message);
+  e.preventDefault();
+  setMsg(null);
+  try {
+    await signInWithPassword(email, password);
+    if (rememberMe) {
+      safeStorage.set("sm_remember_email", "1");
+      safeStorage.set("sm_saved_email", email);
+    } else {
+      safeStorage.remove("sm_remember_email");
+      safeStorage.remove("sm_saved_email");
     }
+    nav("/suivi", { replace: true });
+  } catch (err) {
+    setMsg(err.message);
   }
+}
 
   return (
     <div
@@ -78,7 +128,7 @@ export default function Login() {
                 Suivi Cordage & Tournois
               </div>
               <div style={{ fontSize: 13, color: "#666", marginTop: 4 }}>
-                Connectez-vous pour accéder à l’application.
+                {getContextualMessage()}
               </div>
             </div>
           </div>
@@ -125,6 +175,19 @@ export default function Login() {
                 outline: "none",
               }}
             />
+
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+  <input
+    id="remember-cb"
+    type="checkbox"
+    checked={rememberMe}
+    onChange={e => setRememberMe(e.target.checked)}
+    style={{ width: 15, height: 15, accentColor: "#c80000", cursor: "pointer" }}
+  />
+  <label htmlFor="remember-cb" style={{ fontSize: 13, color: "#333", cursor: "pointer", userSelect: "none" }}>
+    Mémoriser mon email
+  </label>
+</div>
 
             <button
               type="submit"

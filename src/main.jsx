@@ -162,6 +162,7 @@ function Shell() {
         {/* Public */}
         <Route path="/login"   element={<Login />} />
         <Route path="/tournoi" element={<TournoiPublic />} />
+        <Route path="/mentions-legales" element={<MentionsLegales />} />
 
         {/* Private */}
         <Route element={<ProtectedRoute />}>
@@ -170,7 +171,6 @@ function Shell() {
           <Route path="/stats"    element={<Stats />} />
           <Route path="/donnees"  element={<Donnees />} />
           <Route path="/tournois" element={<TournoisPage />} />
-          <Route path="/mentions-legales" element={<MentionsLegales />} />
           <Route path="/clients"  element={<Clients />} />
           <Route path="/clubs"    element={<Clubs />} />
         </Route>
