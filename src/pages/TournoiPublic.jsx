@@ -206,14 +206,18 @@ export default function TournoiPublic() {
 
       {/* ── Header ── */}
       <div className="mx-4 mt-6 mb-2 rounded-2xl shadow-lg px-5 py-5" style={{ background: RED }}>
-        <div className="flex flex-col items-center text-center gap-1">
-          <div className="text-5xl leading-none mb-1">🏆</div>
-          <div className="font-extrabold text-white leading-tight"
-            style={{ fontSize: tournoi?.tournoi && tournoi.tournoi.length > 24 ? "17px" : "22px" }}>
-            {tournoi?.tournoi || "Dépôt raquette"}
-          </div>
-          <div className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>
-            Dépôt raquette · Cordage tournoi
+        <div className="flex items-center gap-4">
+          <div className="text-5xl leading-none shrink-0">🏆</div>
+          <div className="text-left">
+            <div className="font-extrabold text-white leading-tight"
+              style={{ fontSize: tournoi?.tournoi && tournoi.tournoi.length > 24 ? "17px" : "22px" }}>
+              {tournoi?.tournoi || "Dépôt raquette"}
+            </div>
+            {tournoiDate && (
+              <div className="text-sm font-medium mt-0.5" style={{ color: "rgba(255,255,255,0.80)" }}>
+                {tournoiDate}
+              </div>
+            )}
           </div>
         </div>
       </div>
