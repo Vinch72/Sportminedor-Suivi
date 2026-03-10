@@ -1,7 +1,22 @@
 // src/pages/TournoiPublic.jsx
 import { useEffect, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
+import sportminedorLogo from "../assets/sportminedor-logo.png";
 
+// ── Constantes ───────────────────────────────────────────────────────────────
+const RED = "#E10600";
+
+const STEP = {
+  LOADING:    "loading",
+  NOT_FOUND:  "not_found",
+  PHONE:      "phone",
+  NEW_CLIENT: "new_client",
+  RACKET:     "racket",
+  CONFIRM:    "confirm",
+  SUCCESS:    "success",
+};
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 const fmtNom = (s) => (s || "").toUpperCase().trim();
 const fmtPrenom = (s) =>
   (s || "").trim().toLowerCase().replace(
@@ -12,84 +27,11 @@ const fmtPrenom = (s) =>
 function normalizePhone(raw) {
   const digits = raw.replace(/\D/g, "");
   if (digits.startsWith("33") && digits.length === 11) return "+" + digits;
-  if (digits.startsWith("0") && digits.length === 10) return "+33" + digits.slice(1);
+  if (digits.startsWith("0")  && digits.length === 10)  return "+33" + digits.slice(1);
   return raw.replace(/\s/g, "");
 }
 
-const STEP = {
-  LOADING: "loading", NOT_FOUND: "not_found", PHONE: "phone",
-  NEW_CLIENT: "new_client", RACKET: "racket", CONFIRM: "confirm", SUCCESS: "success",
-};
-
-const RED = "#E10600";
-
-const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap');
-*{box-sizing:border-box;margin:0;padding:0;}
-.tp{min-height:100vh;background:#f4f4f5;display:flex;flex-direction:column;align-items:center;padding-bottom:60px;font-family:'Outfit',sans-serif;}
-.tp-header{width:100%;background:${RED};padding:20px 24px;display:flex;align-items:center;gap:16px;margin-bottom:20px;}
-.tp-header-icon{width:50px;height:50px;background:rgba(0,0,0,0.18);border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
-.tp-header-title{color:#fff;font-size:22px;font-weight:900;letter-spacing:-0.03em;line-height:1.1;}
-.tp-header-sub{color:rgba(255,255,255,0.78);font-size:13px;font-weight:500;margin-top:3px;}
-.tp-inner{width:100%;max-width:480px;padding:0 16px;display:flex;flex-direction:column;align-items:stretch;}
-.tp-warn{background:#fff8f0;border:1.5px solid #fcd9a0;border-radius:14px;padding:12px 16px;font-size:13px;font-weight:500;color:#92400e;display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;}
-.tp-card{background:#fff;border-radius:20px;box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden;margin-bottom:24px;}
-.tp-body{padding:24px;}
-.tp-h1{font-size:20px;font-weight:800;color:#111;margin-bottom:4px;}
-.tp-sub{font-size:14px;color:#71717a;margin-bottom:20px;}
-.tp-label{display:block;font-size:11px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:7px;}
-.tp-label em{color:${RED};font-style:normal;}
-.tp-field{margin-bottom:16px;}
-.tp-input{width:100%;height:50px;border:1.5px solid #e4e4e7;border-radius:12px;padding:0 16px;font-size:15px;font-family:'Outfit',sans-serif;font-weight:500;color:#111;background:#fff;outline:none;transition:border-color 0.15s;-webkit-appearance:none;appearance:none;}
-.tp-input:focus{border-color:${RED};}
-.tp-input.lg{height:58px;font-size:20px;font-weight:600;}
-.tp-input.ro{background:#f9f9f9;color:#71717a;}
-textarea.tp-input{height:88px;padding:14px 16px;resize:none;line-height:1.5;}
-.tp-err{font-size:13px;color:#dc2626;margin-top:6px;font-weight:500;}
-.tp-btn-row{display:flex;gap:10px;margin-top:22px;}
-.tp-btn{flex:1;height:52px;border-radius:14px;font-family:'Outfit',sans-serif;font-size:15px;font-weight:700;border:none;cursor:pointer;transition:opacity 0.15s,transform 0.1s;letter-spacing:0.01em;}
-.tp-btn:active{transform:scale(0.98);}
-.tp-btn:disabled{opacity:.55;cursor:not-allowed;}
-.tp-btn.red{background:${RED};color:#fff;}
-.tp-btn.red:hover:not(:disabled){opacity:.9;}
-.tp-btn.ghost{background:#f4f4f5;color:#3f3f46;flex:0 0 auto;padding:0 20px;}
-.tp-btn.ghost:hover{background:#e4e4e7;}
-.tp-btn.full{width:100%;flex:none;margin-top:18px;}
-.tp-client-card{display:flex;align-items:center;gap:14px;padding:14px 16px;background:#f9f9f9;border-radius:14px;margin-bottom:20px;border:1.5px solid #f0f0f0;}
-.tp-avatar{width:46px;height:46px;border-radius:50%;background:${RED};color:#fff;font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.tp-client-name{font-size:16px;font-weight:700;color:#111;}
-.tp-client-phone{font-size:13px;color:#71717a;margin-top:1px;}
-.tp-check{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid #e4e4e7;border-radius:12px;cursor:pointer;transition:border-color 0.15s,background 0.15s;user-select:none;}
-.tp-check:hover{border-color:#d4d4d8;background:#fafafa;}
-.tp-check.on{border-color:${RED};background:#fff5f5;}
-.tp-check-box{width:22px;height:22px;border-radius:6px;border:2px solid #d4d4d8;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;}
-.tp-check.on .tp-check-box{background:${RED};border-color:${RED};}
-.tp-check-lbl{font-weight:600;font-size:14px;color:#27272a;}
-.tp-check-sub{font-size:12px;color:#71717a;margin-top:1px;}
-.tp-price{background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:14px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;margin-top:16px;}
-.tp-price-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#0369a1;}
-.tp-price-amt{font-size:26px;font-weight:900;color:#0369a1;letter-spacing:-0.03em;}
-.tp-table{border:1.5px solid #e4e4e7;border-radius:16px;overflow:hidden;margin-top:16px;}
-.tp-row{display:flex;justify-content:space-between;align-items:flex-start;padding:13px 18px;border-bottom:1px solid #f0f0f0;gap:16px;}
-.tp-row:last-child{border-bottom:none;}
-.tp-row-k{font-size:13px;color:#71717a;font-weight:500;flex-shrink:0;}
-.tp-row-v{font-size:14px;font-weight:700;color:#111;text-align:right;}
-.tp-row.price-row{background:#f0f9ff;border-top:1.5px solid #bae6fd;}
-.tp-confirm-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
-.tp-ok-badge{width:32px;height:32px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;}
-.tp-success{text-align:center;padding:28px 8px;display:flex;flex-direction:column;align-items:center;gap:14px;}
-.tp-success-emoji{font-size:64px;line-height:1;}
-.tp-success-title{font-size:24px;font-weight:900;color:#111;}
-.tp-success-sub{font-size:14px;color:#71717a;line-height:1.65;max-width:300px;}
-.tp-pay-box{background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:16px;padding:18px 24px;text-align:center;width:100%;}
-.tp-pay-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#0369a1;margin-bottom:4px;}
-.tp-pay-amt{font-size:32px;font-weight:900;color:#0369a1;letter-spacing:-0.03em;}
-.tp-footer{text-align:center;font-size:12px;color:#a1a1aa;font-weight:500;}
-.tp-date-box{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#eff6ff;border-radius:12px;margin-bottom:22px;border:1px solid #bfdbfe;}
-.tp-date-lbl{font-size:13px;font-weight:600;color:#1d4ed8;}
-.tp-date-sub{font-size:12px;color:#3b82f6;margin-top:1px;}
-`;
-
+// ── Composant principal ──────────────────────────────────────────────────────
 export default function TournoiPublic() {
   const params    = new URLSearchParams(window.location.search);
   const tournoiId = params.get("t") || "";
@@ -107,10 +49,11 @@ export default function TournoiPublic() {
   const [newClient,    setNewClient]    = useState({ nom: "", prenom: "", phone: "", club_id: "" });
   const [clientErr,    setClientErr]    = useState("");
   const [savingClient, setSavingClient] = useState(false);
-  const [form, setForm] = useState({ raquette: "", cordage_id: "", tension: "", notes: "", fourni: false });
+  const [form,    setForm]    = useState({ raquette: "", cordage_id: "", tension: "", notes: "", fourni: false });
   const [formErr, setFormErr] = useState("");
   const [saving,  setSaving]  = useState(false);
 
+  // ── Chargement initial ───────────────────────────────────────────────────
   useEffect(() => {
     if (!tournoiId) { setStep(STEP.NOT_FOUND); return; }
     async function init() {
@@ -132,15 +75,16 @@ export default function TournoiPublic() {
     init();
   }, [tournoiId]);
 
+  // ── Calcul prix ──────────────────────────────────────────────────────────
   function computePrice(clubName, cordageId, fourni) {
     if (fourni) return 12;
-    const club = clubsData.find(c => c.clubs === clubName);
+    const club    = clubsData.find(c => c.clubs === clubName);
     const cordage = cordages.find(c => c.cordage === cordageId);
     if (!club || !cordage) return null;
     const tm = tarifMatrix.find(r =>
-      (!!r.bobine_base) === !!club.bobine_base &&
+      (!!r.bobine_base)     === !!club.bobine_base &&
       (!!r.bobine_specific) === !!club.bobine_specific &&
-      (!!r.is_base) === !!cordage.is_base
+      (!!r.is_base)         === !!cordage.is_base
     );
     return tm ? (tm.price_cents || 0) / 100 : null;
   }
@@ -158,6 +102,7 @@ export default function TournoiPublic() {
     return s || null;
   }
 
+  // ── Handlers ─────────────────────────────────────────────────────────────
   async function handlePhoneSubmit(e) {
     e.preventDefault();
     setPhoneErr("");
@@ -192,8 +137,10 @@ export default function TournoiPublic() {
     setSavingClient(true);
     try {
       const { data, error } = await supabase.from("clients").insert({
-        nom: fmtNom(newClient.nom), prenom: fmtPrenom(newClient.prenom),
-        phone: newClient.phone, club: newClient.club_id || null,
+        nom:    fmtNom(newClient.nom),
+        prenom: fmtPrenom(newClient.prenom),
+        phone:  newClient.phone,
+        club:   newClient.club_id || null,
       }).select("id, nom, prenom, phone, cordage, tension, club").single();
       if (error) throw error;
       setClient(data);
@@ -206,7 +153,7 @@ export default function TournoiPublic() {
     setSaving(true);
     try {
       const { data: cordData } = await supabase.from("tournoi_cordeurs").select("cordeur").eq("tournoi", tournoiId);
-      const cordeurs = (cordData || []).map(d => d.cordeur);
+      const cordeurs    = (cordData || []).map(d => d.cordeur);
       const autoCordeur = cordeurs.length === 1 ? cordeurs[0] : null;
       const { error } = await supabase.from("tournoi_raquettes").insert({
         tournoi:    tournoiId,
@@ -233,289 +180,398 @@ export default function TournoiPublic() {
   const tournoiDate  = fmtTournoiDate(tournoi);
   const prix         = computePrice(client?.club || "", form.cordage_id, form.fourni);
   const prixFmt      = prix !== null ? prix.toFixed(2).replace(".", ",") + " €" : null;
+  const showWarn     = [STEP.PHONE, STEP.NEW_CLIENT, STEP.RACKET].includes(step);
 
-  const showWarn = [STEP.PHONE, STEP.NEW_CLIENT, STEP.RACKET].includes(step);
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <>
-      <style>{CSS}</style>
-      <div className="tp">
+    <div className="min-h-screen flex flex-col" style={{ background: "#0f0f0f" }}>
 
-        {/* Header */}
-        <div className="tp-header">
-          <div className="tp-header-icon">🏸</div>
-          <div>
-            <div className="tp-header-title">Dépôt raquette</div>
-            {tournoi && <div className="tp-header-sub">{tournoi.tournoi}</div>}
-          </div>
-        </div>
-
-        <div className="tp-inner">
-
-          {/* Warning décordage */}
-          {showWarn && (
-            <div className="tp-warn">
-              <span style={{ fontSize: "16px", flexShrink: 0 }}>⚠️</span>
-              <span>Merci de bien <strong>décorder ta raquette</strong> avant de la déposer pour nous faire gagner du temps !</span>
-            </div>
-          )}
-
-          <div className="tp-card">
-            <div className="tp-body">
-
-              {/* LOADING */}
-              {step === STEP.LOADING && (
-                <div style={{ textAlign: "center", padding: "40px 0", color: "#a1a1aa", fontSize: "15px" }}>Chargement...</div>
-              )}
-
-              {/* NOT FOUND */}
-              {step === STEP.NOT_FOUND && (
-                <div style={{ textAlign: "center", padding: "40px 0" }}>
-                  <div style={{ fontSize: "52px" }}>😕</div>
-                  <div style={{ fontWeight: "800", fontSize: "20px", marginTop: "14px", color: "#111" }}>Tournoi introuvable</div>
-                  <div style={{ color: "#71717a", fontSize: "14px", marginTop: "6px" }}>Ce QR code est invalide ou expiré.</div>
+      {/* ── Header ── */}
+      <div className="mx-4 mt-6 mb-2 rounded-2xl shadow-lg px-5 py-4" style={{ background: RED }}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+              style={{ background: "rgba(0,0,0,0.2)" }}>🏸</div>
+            <div className="min-w-0">
+              <div className="font-extrabold text-white text-lg leading-tight">Dépôt raquette</div>
+              {tournoi?.tournoi && (
+                <div className="text-sm font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>
+                  {tournoi.tournoi}
                 </div>
               )}
-
-              {/* ETAPE 1 : Téléphone */}
-              {step === STEP.PHONE && (
-                <form onSubmit={handlePhoneSubmit}>
-                  {tournoiDate && (
-                    <div className="tp-date-box">
-                      <span style={{ fontSize: "18px" }}>📅</span>
-                      <div>
-                        <div className="tp-date-lbl">{tournoiDate}</div>
-                        <div className="tp-date-sub">Dépose ta raquette et on s'occupe du reste !</div>
-                      </div>
-                    </div>
-                  )}
-                  <div className="tp-h1">Ton numéro de téléphone</div>
-                  <div className="tp-sub">On vérifie si tu es déjà dans notre système.</div>
-                  <div className="tp-field">
-                    <label className="tp-label">Téléphone</label>
-                    <input type="tel" inputMode="tel" autoFocus className="tp-input lg"
-                      placeholder="06 12 34 56 78" value={phone}
-                      onChange={(e) => setPhone(e.target.value)} />
-                    {phoneErr && <div className="tp-err">{phoneErr}</div>}
-                  </div>
-                  <button type="submit" disabled={phoneLoading} className="tp-btn red full">
-                    {phoneLoading ? "Recherche..." : "Continuer →"}
-                  </button>
-                  <p className="text-xs text-gray-400 text-center mt-3">
-                    En continuant, vous acceptez que vos données (nom, téléphone) soient 
-                    collectées par <b>Sportminedor</b> pour la gestion de votre cordage. 
-                    Conformément au RGPD, vous pouvez demander leur suppression à 
-                    <a href="mailto:franck.dessaux@sportminedor.com" className="underline"> franck.dessaux@sportminedor.com</a>.
-                  </p>
-                </form>
-              )}
-
-              {/* ETAPE 2 : Nouveau client */}
-              {step === STEP.NEW_CLIENT && (
-                <form onSubmit={handleNewClientSubmit}>
-                  <div className="tp-h1">Première visite 👋</div>
-                  <div className="tp-sub">Crée ta fiche joueur en quelques secondes.</div>
-                  <div className="tp-field">
-                    <label className="tp-label">Nom <em>*</em></label>
-                    <input autoFocus className="tp-input" placeholder="DUPONT" value={newClient.nom}
-                      onChange={(e) => setNewClient(c => ({ ...c, nom: e.target.value.toUpperCase() }))} />
-                  </div>
-                  <div className="tp-field">
-                    <label className="tp-label">Prénom <em>*</em></label>
-                    <input className="tp-input" placeholder="Jean" value={newClient.prenom}
-                      onChange={(e) => setNewClient(c => ({ ...c, prenom: fmtPrenom(e.target.value) }))} />
-                  </div>
-                  <div className="tp-field">
-                    <label className="tp-label">Téléphone</label>
-                    <input className="tp-input ro" value={newClient.phone} readOnly />
-                  </div>
-                  <div className="tp-field">
-                    <label className="tp-label">Club</label>
-                    <select className="tp-input" value={newClient.club_id}
-                      onChange={(e) => setNewClient(c => ({ ...c, club_id: e.target.value }))}>
-                      <option value="">-- Aucun club --</option>
-                      {clubs.map(cl => <option key={cl.clubs} value={cl.clubs}>{cl.clubs}</option>)}
-                    </select>
-                  </div>
-                  {clientErr && <div className="tp-err" style={{ marginBottom: "12px" }}>{clientErr}</div>}
-                  <div className="tp-btn-row">
-                    <button type="button" className="tp-btn ghost" onClick={() => { setStep(STEP.PHONE); setPhone(""); }}>← Retour</button>
-                    <button type="submit" disabled={savingClient} className="tp-btn red">
-                      {savingClient ? "Création..." : "Créer mon profil →"}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* ETAPE 3 : Raquette */}
-              {step === STEP.RACKET && client && (
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!form.raquette.trim())  { setFormErr("Le modèle de raquette est requis."); return; }
-                  if (!client.club)           { setFormErr("Le club est requis."); return; }
-                  if (!form.cordage_id)       { setFormErr("Le cordage est requis."); return; }
-                  if (!form.tension.trim())   { setFormErr("La tension est requise."); return; }
-                  setFormErr(""); setStep(STEP.CONFIRM);
-                }}>
-                  <div className="tp-client-card">
-                    <div className="tp-avatar">{(client.prenom || client.nom || "?")[0].toUpperCase()}</div>
-                    <div>
-                      <div className="tp-client-name">Bonjour {fmtPrenom(client.prenom)} ! 👋</div>
-                      <div className="tp-client-phone">{client.phone}</div>
-                    </div>
-                  </div>
-
-                  <div className="tp-h1" style={{ fontSize: "16px", marginBottom: "16px" }}>Quelle raquette dépose-tu aujourd'hui ?</div>
-
-                  <div className="tp-field">
-                    <label className="tp-label">Ton club</label>
-                    <select className="tp-input" value={client.club || ""}
-                      onChange={(e) => setClient(c => ({ ...c, club: e.target.value }))}>
-                      <option value="">-- Aucun club --</option>
-                      {clubs.map(cl => <option key={cl.clubs} value={cl.clubs}>{cl.clubs}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="tp-field">
-                    <label className="tp-label">Raquette</label>
-                    <input className="tp-input" placeholder="YONEX ASTROX 88S PRO" value={form.raquette}
-                      onChange={(e) => setForm(f => ({ ...f, raquette: e.target.value.toUpperCase() }))} />
-                  </div>
-
-                  <div className="tp-field">
-                    <label className="tp-label">Cordage <em style={{ color: "#a1a1aa", textTransform: "none", fontSize: "11px", fontWeight: "500" }}>(demande si ton cordage est disponible)</em></label>
-                    <select className="tp-input" value={form.cordage_id}
-                      onChange={(e) => setForm(f => ({ ...f, cordage_id: e.target.value }))}>
-                      <option value="">-- Choisir un cordage --</option>
-                      {cordages.map(c => (
-                        <option key={c.cordage} value={c.cordage}>{c.cordage}{c.is_base ? " [Classique]" : ""}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="tp-field">
-                    <label className="tp-label">Tension <em style={{ color: "#a1a1aa", textTransform: "none", fontSize: "11px", fontWeight: "500" }}>(ex: 11 ou 11-11,5)</em></label>
-                    <input className="tp-input" placeholder="11" value={form.tension}
-                      onChange={(e) => setForm(f => ({ ...f, tension: e.target.value }))} />
-                  </div>
-
-                  <div className="tp-field">
-                    <div className={`tp-check ${form.fourni ? "on" : ""}`} onClick={() => setForm(f => ({ ...f, fourni: !f.fourni }))}>
-                      <div className="tp-check-box">
-                        {form.fourni && (
-                          <svg width="13" height="10" viewBox="0 0 13 10" fill="none">
-                            <path d="M1.5 5L5 8.5L11.5 1.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        )}
-                      </div>
-                      <div>
-                        <div className="tp-check-lbl">Je fournis mon cordage</div>
-                        <div className="tp-check-sub">Coche si tu apportes toi-même le cordage</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="tp-field">
-                    <label className="tp-label">Message / demande spéciale <em style={{ color: "#a1a1aa", textTransform: "none", fontSize: "11px", fontWeight: "500" }}>(optionnel)</em></label>
-                    <textarea className="tp-input" placeholder="Ex: tension un peu plus serrée, raquette fragile au manche..."
-                      value={form.notes} onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))} />
-                  </div>
-
-                  {prixFmt && form.cordage_id && (
-                    <div className="tp-price">
-                      <div>
-                        <div className="tp-price-lbl">À payer</div>
-                        {form.fourni && <div style={{ fontSize: "11px", color: "#0369a1", marginTop: "2px" }}>Cordage fourni</div>}
-                      </div>
-                      <div className="tp-price-amt">{prixFmt}</div>
-                    </div>
-                  )}
-
-                  {formErr && <div className="tp-err" style={{ marginTop: "12px" }}>{formErr}</div>}
-
-                  <div className="tp-btn-row">
-                    <button type="button" className="tp-btn ghost" onClick={() => setStep(STEP.PHONE)}>← Retour</button>
-                    <button type="submit" className="tp-btn red">Vérifier →</button>
-                  </div>
-                </form>
-              )}
-
-              {/* ETAPE 4 : Confirmation */}
-              {step === STEP.CONFIRM && client && (
-                <div>
-                  <div className="tp-confirm-header">
-                    <div className="tp-ok-badge">✓</div>
-                    <div>
-                      <div className="tp-h1" style={{ fontSize: "18px" }}>Confirmer l'inscription</div>
-                      <div style={{ color: "#71717a", fontSize: "13px" }}>Vérifie les informations avant d'envoyer</div>
-                    </div>
-                  </div>
-                  <div className="tp-table">
-                    {[
-                      { label: "Tournoi",        value: tournoi?.tournoi },
-                      { label: "Client",         value: `${fmtNom(client.nom)} ${fmtPrenom(client.prenom)}` },
-                      { label: "Téléphone",      value: client.phone },
-                      { label: "Raquette",       value: form.raquette || "—" },
-                      { label: "Club",           value: client.club || "—" },
-                      { label: "Cordage",        value: cordageLabel },
-                      { label: "Tension",        value: form.tension || "—" },
-                      { label: "Cordage fourni", value: form.fourni ? "Oui" : "Non" },
-                      ...(form.notes ? [{ label: "Notes", value: form.notes }] : []),
-                    ].map(({ label, value }, i, arr) => (
-                      <div key={label} className="tp-row" style={{ borderBottom: i < arr.length - 1 ? "1px solid #f0f0f0" : "none" }}>
-                        <span className="tp-row-k">{label}</span>
-                        <span className="tp-row-v">{value}</span>
-                      </div>
-                    ))}
-                    {prixFmt && (
-                      <div className="tp-row price-row">
-                        <span style={{ fontSize: "13px", color: "#0369a1", fontWeight: "700" }}>À payer</span>
-                        <span style={{ fontSize: "18px", fontWeight: "900", color: "#0369a1" }}>{prixFmt}</span>
-                      </div>
-                    )}
-                  </div>
-                  {formErr && <div className="tp-err" style={{ marginTop: "12px" }}>{formErr}</div>}
-                  <div className="tp-btn-row">
-                    <button type="button" className="tp-btn ghost" onClick={() => setStep(STEP.RACKET)}>← Modifier</button>
-                    <button type="button" disabled={saving} onClick={handleConfirmSubmit} className="tp-btn red">
-                      {saving ? "Envoi..." : "🏸 S'inscrire"}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* ETAPE 5 : Succès */}
-              {step === STEP.SUCCESS && (
-                <div className="tp-success">
-                  <div className="tp-success-emoji">🎉</div>
-                  <div className="tp-success-title">Raquette enregistrée !</div>
-                  <div className="tp-success-sub">
-                    Le dépôt de ta raquette au tournoi : <strong>{tournoi?.tournoi}</strong> a bien été enregistrée.<br />
-                    Le cordeur a été notifié et s'occupera de ta raquette.
-                    Pense bien à décorder ta raquette !
-                  </div>
-                  {prixFmt && (
-                    <div className="tp-pay-box">
-                      <div className="tp-pay-lbl">À payer au cordeur</div>
-                      <div className="tp-pay-amt">{prixFmt}</div>
-                    </div>
-                  )}
-                  <div style={{ fontSize: "13px", color: "#71717a" }}>Tu peux fermer cette page ou...↓</div>
-                  <button type="button" className="tp-btn ghost full" style={{ marginTop: "0" }}
-                    onClick={() => { setStep(STEP.PHONE); setPhone(""); setClient(null); setForm({ raquette: "", cordage_id: "", tension: "", notes: "", fourni: false }); }}>
-                    Déposer une autre raquette
-                  </button>
-                </div>
-              )}
-
             </div>
           </div>
-
-          <div className="tp-footer">
-            Sportminedor — Suivi cordage · <a href="/mentions-legales" style={{ color: "#a1a1aa", textDecoration: "underline" }}>Mentions légales</a>
-          </div>
+          <img src={sportminedorLogo} alt="Sportminedor"
+            className="h-8 object-contain shrink-0"
+            style={{ filter: "brightness(0) invert(1)", opacity: 0.9 }}
+            onError={e => e.target.style.display = "none"} />
         </div>
       </div>
-    </>
+
+      {/* ── Contenu ── */}
+      <div className="flex-1 flex flex-col items-center px-4 pb-8 gap-3 max-w-md mx-auto w-full">
+
+        {/* Warning décordage */}
+        {showWarn && (
+          <div className="w-full rounded-2xl border px-4 py-3 flex items-start gap-3 text-sm font-medium"
+            style={{ background: "rgba(225,6,0,0.08)", borderColor: "rgba(225,6,0,0.25)", color: "#fca5a5" }}>
+            <span className="shrink-0">⚠️</span>
+            <span>Merci de bien <strong>décorder ta raquette</strong> avant de la déposer pour nous faire gagner du temps !</span>
+          </div>
+        )}
+
+        {/* ── LOADING ── */}
+        {step === STEP.LOADING && (
+          <Card><div className="text-center py-10 text-gray-400 text-sm">Chargement…</div></Card>
+        )}
+
+        {/* ── NOT FOUND ── */}
+        {step === STEP.NOT_FOUND && (
+          <Card>
+            <div className="text-center py-10 space-y-3">
+              <div className="text-5xl">😕</div>
+              <div className="text-xl font-bold text-gray-900">Tournoi introuvable</div>
+              <div className="text-sm text-gray-500">Ce QR code est invalide ou expiré.</div>
+            </div>
+          </Card>
+        )}
+
+        {/* ── ÉTAPE 1 : Téléphone ── */}
+        {step === STEP.PHONE && (
+          <Card>
+            <div className="text-center mb-5">
+              <div className="text-3xl mb-2">🏸</div>
+              <div className="text-xl font-bold text-gray-900">Dépose ta raquette !</div>
+              <p className="text-sm text-gray-500 mt-1 mb-4">Service de cordage du tournoi</p>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                {[
+                  { icon: "📱", label: "Ton numéro" },
+                  { icon: "🏸", label: "Ta raquette" },
+                  { icon: "✅", label: "C'est tout !" },
+                ].map((s, i, arr) => (
+                  <div key={s.label} className="flex items-center gap-2">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg text-white"
+                        style={{ background: RED }}>{s.icon}</div>
+                      <span className="text-xs text-gray-500">{s.label}</span>
+                    </div>
+                    {i < arr.length - 1 && <span className="text-gray-300 text-lg mb-4">→</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {tournoiDate && (
+              <div className="flex items-center gap-3 rounded-xl border px-4 py-3 mb-4"
+                style={{ background: "rgba(225,6,0,0.05)", borderColor: "rgba(225,6,0,0.18)" }}>
+                <span className="text-lg shrink-0">📅</span>
+                <div>
+                  <div className="text-sm font-semibold" style={{ color: RED }}>{tournoiDate}</div>
+                  <div className="text-xs text-gray-500">Dépose ta raquette, on s'occupe du reste !</div>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handlePhoneSubmit}>
+              <label className="block mb-1 text-sm font-medium text-gray-700">Ton numéro de téléphone</label>
+              <input type="tel" inputMode="tel" autoFocus
+                className="w-full border-2 rounded-xl px-4 h-12 text-lg focus:outline-none transition"
+                style={{ borderColor: RED }}
+                placeholder="06 12 34 56 78"
+                value={phone} onChange={e => setPhone(e.target.value)} />
+              {phoneErr && <p className="mt-2 text-sm text-red-600 font-medium">{phoneErr}</p>}
+              <Btn type="submit" className="mt-4 w-full" loading={phoneLoading}>Continuer →</Btn>
+            </form>
+
+            {/* Logo Sportminedor centré */}
+            <div className="mt-5 pt-4 border-t flex justify-center">
+              <img src={sportminedorLogo} alt="Sportminedor"
+                className="h-8 object-contain opacity-80"
+                onError={e => e.target.style.display = "none"} />
+            </div>
+
+            <p className="text-xs text-gray-400 text-center mt-3">
+              En continuant, vous acceptez que vos données (nom, téléphone) soient
+              collectées par <b>Sportminedor</b> pour la gestion de votre cordage.
+              Conformément au RGPD, vous pouvez demander leur suppression à :{" "}
+              <a href="mailto:franck.dessaux@sportminedor.com" className="underline">
+                franck.dessaux@sportminedor.com
+              </a>.
+            </p>
+          </Card>
+        )}
+
+        {/* ── ÉTAPE 2 : Nouveau client ── */}
+        {step === STEP.NEW_CLIENT && (
+          <Card title="📋 Première visite" subtitle="Crée ta fiche joueur en quelques secondes.">
+            <form onSubmit={handleNewClientSubmit}>
+              <div className="space-y-3">
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">Nom *</label>
+                  <input autoFocus className="w-full border-2 rounded-xl px-4 h-11 focus:outline-none transition"
+                    style={{ borderColor: RED }} placeholder="DUPONT" value={newClient.nom}
+                    onChange={e => setNewClient(c => ({ ...c, nom: e.target.value.toUpperCase() }))} />
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">Prénom *</label>
+                  <input className="w-full border-2 rounded-xl px-4 h-11 focus:outline-none transition"
+                    style={{ borderColor: RED }} placeholder="Jean" value={newClient.prenom}
+                    onChange={e => setNewClient(c => ({ ...c, prenom: fmtPrenom(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">Téléphone</label>
+                  <input className="w-full border rounded-xl px-4 h-11 bg-gray-50 text-gray-500 text-sm"
+                    value={newClient.phone} readOnly />
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">Club *</label>
+                  <select className="w-full border-2 rounded-xl px-4 h-11 bg-white text-sm focus:outline-none transition"
+                    style={{ borderColor: newClient.club_id ? RED : "#e5e7eb" }}
+                    value={newClient.club_id}
+                    onChange={e => setNewClient(c => ({ ...c, club_id: e.target.value }))}>
+                    <option value="">— Choisir un club —</option>
+                    {clubs.map(cl => <option key={cl.clubs} value={cl.clubs}>{cl.clubs}</option>)}
+                  </select>
+                </div>
+              </div>
+              {clientErr && <p className="mt-3 text-sm text-red-600 font-medium">{clientErr}</p>}
+              <div className="mt-4 flex gap-2">
+                <button type="button" onClick={() => { setStep(STEP.PHONE); setPhone(""); }}
+                  className="flex-1 h-11 rounded-xl border text-sm text-gray-600 hover:bg-gray-50">← Retour</button>
+                <Btn type="submit" className="flex-1" loading={savingClient}>Créer mon profil →</Btn>
+              </div>
+            </form>
+          </Card>
+        )}
+
+        {/* ── ÉTAPE 3 : Raquette ── */}
+        {step === STEP.RACKET && client && (
+          <Card>
+            {/* Carte client */}
+            <div className="flex items-center gap-3 rounded-xl p-3 mb-5"
+              style={{ background: "rgba(225,6,0,0.06)", border: "1.5px solid rgba(225,6,0,0.15)" }}>
+              <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
+                style={{ background: RED }}>
+                {(fmtPrenom(client.prenom) || fmtNom(client.nom) || "?")[0].toUpperCase()}
+              </div>
+              <div>
+                <div className="font-bold text-gray-900">Bonjour {fmtPrenom(client.prenom)} ! 👋</div>
+                <div className="text-xs text-gray-500">{client.phone}</div>
+              </div>
+            </div>
+
+            <div className="text-base font-bold text-gray-900 mb-4">Quelle raquette dépose-tu aujourd'hui ?</div>
+
+            <form onSubmit={e => {
+              e.preventDefault();
+              if (!form.raquette.trim())  { setFormErr("Le modèle de raquette est requis."); return; }
+              if (!client.club)           { setFormErr("Le club est requis."); return; }
+              if (!form.cordage_id)       { setFormErr("Le cordage est requis."); return; }
+              if (!form.tension.trim())   { setFormErr("La tension est requise."); return; }
+              setFormErr(""); setStep(STEP.CONFIRM);
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">Ton club</label>
+                  <select className="w-full border-2 rounded-xl px-4 h-11 bg-white text-sm focus:outline-none transition"
+                    style={{ borderColor: client.club ? RED : "#e5e7eb" }}
+                    value={client.club || ""}
+                    onChange={e => setClient(c => ({ ...c, club: e.target.value }))}>
+                    <option value="">— Aucun club —</option>
+                    {clubs.map(cl => <option key={cl.clubs} value={cl.clubs}>{cl.clubs}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">Raquette</label>
+                  <input className="w-full border-2 rounded-xl px-4 h-11 text-sm focus:outline-none transition"
+                    style={{ borderColor: form.raquette ? RED : "#e5e7eb" }}
+                    placeholder="YONEX ASTROX 88S PRO" value={form.raquette}
+                    onChange={e => setForm(f => ({ ...f, raquette: e.target.value.toUpperCase() }))} />
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">
+                    Cordage
+                    <span className="ml-1 text-xs text-gray-400 font-normal">(demande si ton cordage est disponible)</span>
+                  </label>
+                  <select className="w-full border-2 rounded-xl px-4 h-11 bg-white text-sm focus:outline-none transition"
+                    style={{ borderColor: form.cordage_id ? RED : "#e5e7eb" }}
+                    value={form.cordage_id}
+                    onChange={e => setForm(f => ({ ...f, cordage_id: e.target.value }))}>
+                    <option value="">— Choisir un cordage —</option>
+                    {cordages.map(c => (
+                      <option key={c.cordage} value={c.cordage}>
+                        {c.cordage}{c.is_base ? " [Classique]" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">
+                    Tension
+                    <span className="ml-1 text-xs text-gray-400 font-normal">(ex: 11 ou 11-11,5)</span>
+                  </label>
+                  <input className="w-full border-2 rounded-xl px-4 h-11 text-sm focus:outline-none transition"
+                    style={{ borderColor: form.tension ? RED : "#e5e7eb" }}
+                    placeholder="11" value={form.tension}
+                    onChange={e => setForm(f => ({ ...f, tension: e.target.value }))} />
+                </div>
+
+                {/* Cordage fourni */}
+                <button type="button" onClick={() => setForm(f => ({ ...f, fourni: !f.fourni }))}
+                  className="w-full flex items-center gap-3 px-4 h-12 rounded-xl border-2 transition text-left"
+                  style={form.fourni
+                    ? { borderColor: RED, background: "rgba(225,6,0,0.05)" }
+                    : { borderColor: "#e5e7eb", background: "#fff" }}>
+                  <div className="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition"
+                    style={form.fourni ? { background: RED, borderColor: RED } : { borderColor: "#d1d5db" }}>
+                    {form.fourni && (
+                      <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                        <path d="M1 4.5L4 7.5L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-800">Je fournis mon cordage</div>
+                    <div className="text-xs text-gray-500">Coche si tu apportes toi-même le cordage</div>
+                  </div>
+                </button>
+
+                {/* Notes */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">
+                    Message / demande spéciale
+                    <span className="ml-1 text-xs text-gray-400 font-normal">(optionnel)</span>
+                  </label>
+                  <textarea
+                    className="w-full border-2 rounded-xl px-4 py-3 text-sm focus:outline-none resize-none transition"
+                    style={{ borderColor: form.notes ? RED : "#e5e7eb" }}
+                    rows={3}
+                    placeholder="Ex: tension un peu plus serrée, raquette fragile au manche…"
+                    value={form.notes}
+                    onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+                </div>
+
+                {/* Tarif estimé */}
+                {prixFmt && form.cordage_id && (
+                  <div className="flex items-center justify-between rounded-xl border-2 px-4 py-3"
+                    style={{ borderColor: "#bae6fd", background: "#f0f9ff" }}>
+                    <div>
+                      <div className="text-xs text-blue-700 uppercase tracking-wide font-medium">À payer</div>
+                      {form.fourni && <div className="text-xs text-blue-500 mt-0.5">Cordage fourni</div>}
+                      <div className="text-2xl font-extrabold text-blue-700">{prixFmt}</div>
+                    </div>
+                    <div className="text-3xl">💶</div>
+                  </div>
+                )}
+              </div>
+
+              {formErr && <p className="mt-3 text-sm text-red-600 font-medium">{formErr}</p>}
+
+              <div className="mt-5 flex gap-2">
+                <button type="button" onClick={() => setStep(STEP.PHONE)}
+                  className="flex-1 h-11 rounded-xl border text-sm text-gray-600 hover:bg-gray-50">← Retour</button>
+                <Btn type="submit" className="flex-1">Vérifier →</Btn>
+              </div>
+            </form>
+          </Card>
+        )}
+
+        {/* ── ÉTAPE 4 : Confirmation ── */}
+        {step === STEP.CONFIRM && client && (
+          <Card title="✅ Confirmer l'inscription" subtitle="Vérifie les informations avant d'envoyer">
+            <div className="rounded-xl border overflow-hidden">
+              {[
+                { label: "Tournoi",        value: tournoi?.tournoi },
+                { label: "Client",         value: `${fmtNom(client.nom)} ${fmtPrenom(client.prenom)}` },
+                { label: "Téléphone",      value: client.phone },
+                { label: "Raquette",       value: form.raquette || "—" },
+                { label: "Club",           value: client.club || "—" },
+                { label: "Cordage",        value: cordageLabel },
+                { label: "Tension",        value: form.tension || "—" },
+                { label: "Cordage fourni", value: form.fourni ? "Oui" : "Non" },
+                ...(form.notes ? [{ label: "Notes", value: form.notes }] : []),
+              ].map(({ label, value }, i, arr) => (
+                <div key={label}
+                  className="flex justify-between items-start gap-4 px-4 py-3"
+                  style={{ borderBottom: i < arr.length - 1 ? "1px solid #f4f4f5" : "none" }}>
+                  <span className="text-sm text-gray-500 shrink-0">{label}</span>
+                  <span className="text-sm font-semibold text-gray-900 text-right">{value}</span>
+                </div>
+              ))}
+              {prixFmt && (
+                <div className="flex justify-between items-center px-4 py-3"
+                  style={{ background: "#f0f9ff", borderTop: "1.5px solid #bae6fd" }}>
+                  <span className="text-sm font-bold text-blue-700">À payer</span>
+                  <span className="text-xl font-extrabold text-blue-700">{prixFmt}</span>
+                </div>
+              )}
+            </div>
+            {formErr && <p className="mt-3 text-sm text-red-600 font-medium">{formErr}</p>}
+            <div className="mt-5 flex gap-2">
+              <button type="button" onClick={() => setStep(STEP.RACKET)}
+                className="flex-1 h-11 rounded-xl border text-sm text-gray-600 hover:bg-gray-50">← Modifier</button>
+              <Btn className="flex-1" onClick={handleConfirmSubmit} loading={saving}>🏸 S'inscrire</Btn>
+            </div>
+          </Card>
+        )}
+
+        {/* ── ÉTAPE 5 : Succès ── */}
+        {step === STEP.SUCCESS && (
+          <Card>
+            <div className="text-center py-6 space-y-4">
+              <div className="text-6xl">🎉</div>
+              <div className="text-xl font-bold text-gray-900">Raquette enregistrée !</div>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Le dépôt de ta raquette au tournoi <b>{tournoi?.tournoi}</b> a bien été enregistré.<br />
+                Le cordeur a été notifié et s'occupera de ta raquette.<br />
+                Pense bien à <b>décorder ta raquette</b> !
+              </p>
+              {prixFmt && (
+                <div className="rounded-xl border-2 px-5 py-4 inline-block"
+                  style={{ borderColor: "#bae6fd", background: "#f0f9ff" }}>
+                  <div className="text-xs text-blue-600 uppercase tracking-wide font-medium mb-1">À payer au cordeur</div>
+                  <div className="text-3xl font-extrabold text-blue-700">{prixFmt}</div>
+                </div>
+              )}
+              <button type="button"
+                onClick={() => {
+                  setStep(STEP.PHONE); setPhone(""); setClient(null);
+                  setForm({ raquette: "", cordage_id: "", tension: "", notes: "", fourni: false });
+                }}
+                className="w-full h-11 rounded-xl border-2 text-sm font-semibold transition"
+                style={{ borderColor: RED, color: RED, background: "#fff" }}>
+                🏸 Déposer une autre raquette
+              </button>
+            </div>
+          </Card>
+        )}
+
+        <div className="text-xs text-center" style={{ color: "rgba(255,255,255,0.35)" }}>
+          Sportminedor — Suivi cordage ·{" "}
+          <a href="/mentions-legales" className="underline">Mentions légales</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function Card({ title, subtitle, children }) {
+  return (
+    <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      {title    && <div className="text-lg font-bold text-gray-900 mb-1">{title}</div>}
+      {subtitle && <div className="text-sm text-gray-500 mb-4">{subtitle}</div>}
+      {children}
+    </div>
+  );
+}
+
+function Btn({ children, onClick, loading, disabled, type = "button", className = "" }) {
+  return (
+    <button type={type} onClick={onClick} disabled={disabled || loading}
+      className={`h-11 rounded-xl text-white font-bold text-sm transition disabled:opacity-40 ${className}`}
+      style={{ background: RED }}>
+      {loading ? "…" : children}
+    </button>
   );
 }
