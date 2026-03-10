@@ -53,6 +53,23 @@ export default function TournoiPublic() {
   const [formErr, setFormErr] = useState("");
   const [saving,  setSaving]  = useState(false);
 
+  // ── Bloquer navigation arrière ───────────────────────────────────────────
+  useEffect(() => {
+    window.history.pushState(null, "", window.location.href);
+    function handlePopState() {
+      window.history.pushState(null, "", window.location.href);
+      setStep(prev => {
+        if (prev === STEP.NEW_CLIENT) return STEP.PHONE;
+        if (prev === STEP.RACKET)     return STEP.PHONE;
+        if (prev === STEP.CONFIRM)    return STEP.RACKET;
+        if (prev === STEP.SUCCESS)    return STEP.SUCCESS;
+        return prev;
+      });
+    }
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   // ── Chargement initial ───────────────────────────────────────────────────
   useEffect(() => {
     if (!tournoiId) { setStep(STEP.NOT_FOUND); return; }
@@ -106,15 +123,16 @@ export default function TournoiPublic() {
   async function handlePhoneSubmit(e) {
     e.preventDefault();
     setPhoneErr("");
-    const cleaned = phone.replace(/\s/g, "");
-    if (cleaned.length < 8) { setPhoneErr("Numéro trop court."); return; }
+    const cleaned = phone.replace(/[\s.\-]/g, "");
+    const isValid = /^(06|07)\d{8}$/.test(cleaned) || /^\+33[67]\d{8}$/.test(cleaned);
+    if (!isValid) { setPhoneErr("Numéro invalide — entre un 06 ou 07 (ex: 06 12 34 56 78)"); return; }
     const normalized = normalizePhone(cleaned);
     setPhoneLoading(true);
     let found = null;
     const r1 = await supabase.from("clients").select("id, nom, prenom, phone, cordage, tension, club").eq("phone", normalized).maybeSingle();
     if (r1.data) found = r1.data;
     else {
-      const r2 = await supabase.from("clients").select("id, nom, prenom, phone, cordage, tension, club").eq("phone", cleaned).maybeSingle();
+      const r2 = await supabase.from("clients").select("id, nom, prenom, phone, cordage, tension, club").eq("phone", phone.replace(/[\s.\-]/g, "")).maybeSingle();
       if (r2.data) found = r2.data;
     }
     setPhoneLoading(false);
@@ -187,24 +205,16 @@ export default function TournoiPublic() {
     <div className="min-h-screen flex flex-col" style={{ background: "#0f0f0f" }}>
 
       {/* ── Header ── */}
-      <div className="mx-4 mt-6 mb-2 rounded-2xl shadow-lg px-5 py-4" style={{ background: RED }}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
-              style={{ background: "rgba(0,0,0,0.2)" }}>🏸</div>
-            <div className="min-w-0">
-              <div className="font-extrabold text-white text-lg leading-tight">Dépôt raquette</div>
-              {tournoi?.tournoi && (
-                <div className="text-sm font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>
-                  {tournoi.tournoi}
-                </div>
-              )}
-            </div>
+      <div className="mx-4 mt-6 mb-2 rounded-2xl shadow-lg px-5 py-5" style={{ background: RED }}>
+        <div className="flex flex-col items-center text-center gap-1">
+          <div className="text-5xl leading-none mb-1">🏆</div>
+          <div className="font-extrabold text-white leading-tight"
+            style={{ fontSize: tournoi?.tournoi && tournoi.tournoi.length > 24 ? "17px" : "22px" }}>
+            {tournoi?.tournoi || "Dépôt raquette"}
           </div>
-          <img src={sportminedorLogo} alt="Sportminedor"
-            className="h-8 object-contain shrink-0"
-            style={{ filter: "brightness(0) invert(1)", opacity: 0.9 }}
-            onError={e => e.target.style.display = "none"} />
+          <div className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>
+            Dépôt raquette · Cordage tournoi
+          </div>
         </div>
       </div>
 
@@ -478,7 +488,7 @@ export default function TournoiPublic() {
 
         {/* ── ÉTAPE 4 : Confirmation ── */}
         {step === STEP.CONFIRM && client && (
-          <Card title="✅ Confirmer l'inscription" subtitle="Vérifie les informations avant d'envoyer">
+          <Card title="✅ Dépôt de ta raquette" subtitle="Vérifie les informations avant d'envoyer">
             <div className="rounded-xl border overflow-hidden">
               {[
                 { label: "Tournoi",        value: tournoi?.tournoi },
@@ -510,7 +520,7 @@ export default function TournoiPublic() {
             <div className="mt-5 flex gap-2">
               <button type="button" onClick={() => setStep(STEP.RACKET)}
                 className="flex-1 h-11 rounded-xl border text-sm text-gray-600 hover:bg-gray-50">← Modifier</button>
-              <Btn className="flex-1" onClick={handleConfirmSubmit} loading={saving}>🏸 S'inscrire</Btn>
+              <Btn className="flex-1" onClick={handleConfirmSubmit} loading={saving}>🏸 Déposer ma raquette</Btn>
             </div>
           </Card>
         )}
