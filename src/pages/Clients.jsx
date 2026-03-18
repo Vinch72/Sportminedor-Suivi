@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../utils/supabaseClient";
-import logo from "../assets/sportminedor-logo.png"
+import PageHeader from "../components/ui/PageHeader"
 
 // === Helpers (declare BEFORE component to avoid TDZ) ===
 function normStr(s) {
@@ -324,24 +324,20 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
   // rendu
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <img
-            src={logo}
-            alt=""
-            className="h-8 w-8 rounded-full select-none"
-          />
-          <span>Gestion des Clients</span>
-        </h1>
-        <button
-          type="button"
-          onClick={() => { closeFormModal(); setFormOpen(true); }}
-          className="flex items-center gap-2 px-4 h-10 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition"
-          style={{ background: "#E10600" }}
-        >
-          + Ajouter un client
-        </button>
-      </div>
+      <PageHeader
+        title="Clients"
+        description="Gérez votre base de clients et leurs préférences de cordage."
+        action={
+          <button
+            type="button"
+            onClick={() => { closeFormModal(); setFormOpen(true); }}
+            className="flex items-center gap-2 px-4 h-10 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition"
+            style={{ background: "#E10600" }}
+          >
+            + Ajouter un client
+          </button>
+        }
+      />
 
       {/* Recherche client */}
 <div className="mt-6">
@@ -432,7 +428,7 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
                           e.stopPropagation();
                           fillFormFromClient(c);
                         }}
-                        className="p-2 rounded-full hover:bg-gray-100"
+                        className="icon-btn"
                       >
                         <IconEdit />
                       </button>
@@ -444,7 +440,7 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
                           e.stopPropagation();
                           onDeleteClient(c);
                         }}
-                        className="p-2 rounded-full hover:bg-red-100 text-red-600"
+                        className="icon-btn-red"
                       >
                         <IconTrash />
                       </button>
@@ -509,7 +505,10 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
 
       {/* Modal formulaire client */}
       {formOpen && (
-        <Modal wide onClose={closeFormModal} title={isEdit ? "Modifier le client" : "Ajouter un client"}>
+        <Modal wide onClose={closeFormModal} icon="👥"
+          title={isEdit ? "Modifier le client" : "Ajouter un client"}
+          subtitle={isEdit ? "Modifiez les informations du client." : "Renseignez les informations du nouveau client."}
+        >
           <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4">
             <Field label="Nom" required>
               <input className="w-full border rounded-lg p-2" value={nom} onChange={e=>setNom(formatNom(e.target.value))} />
@@ -675,7 +674,7 @@ function Detail({ label, value }) {
     </div>
   );
 }
-function Modal({ title, children, onClose, wide = false }) {
+function Modal({ title, subtitle, icon, children, onClose, wide = false }) {
   // Échap + bloque le scroll de la page
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose?.();
@@ -693,16 +692,26 @@ function Modal({ title, children, onClose, wide = false }) {
       {/* Backdrop cliquable */}
       <div className="absolute inset-0 modal-overlay" onClick={onClose} />
 
-      {/* Carte centrée, étroite et pas trop haute */}
-      <div className="absolute inset-0 flex items-center justify-center px-3">
+      {/* Bottom sheet mobile / modal centré desktop */}
+      <div className="absolute inset-0 flex flex-col justify-end sm:justify-center sm:items-center sm:px-3">
         <div
-          className="relative bg-white shadow-card rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
-          style={{ width: "92vw", maxWidth: wide ? 600 : 420 }}
+          className="relative bg-white shadow-card rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col w-full"
+          style={{ maxWidth: wide ? 600 : 420, maxHeight: "90vh" }}
         >
           {/* Header sticky */}
-          <div className="sticky top-0 bg-white px-4 py-2.5 border-b flex items-center justify-between">
-            <h3 className="font-semibold text-base">{title}</h3>
-            <button onClick={onClose} className="text-gray-600 hover:text-black">✕</button>
+          <div className="sticky top-0 bg-white px-5 py-4 border-b">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: "rgba(225,6,0,0.08)" }}>
+                  {icon || "👥"}
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base leading-tight">{title}</h3>
+                  {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+                </div>
+              </div>
+              <button onClick={onClose} className="h-8 w-8 rounded-full border flex items-center justify-center text-gray-500 hover:bg-gray-50 shrink-0 mt-0.5">✕</button>
+            </div>
           </div>
 
           {/* Contenu scrollable */}
@@ -710,9 +719,9 @@ function Modal({ title, children, onClose, wide = false }) {
             {children}
           </div>
 
-          {/* Footer sticky – utile sur mobile */}
-          <div className="sticky bottom-0 bg-white px-4 py-2.5 border-t text-right sm:hidden">
-            <button onClick={onClose} className="px-4 py-2 rounded border">Fermer</button>
+          {/* Poignée visuelle bottom sheet (mobile only) */}
+          <div className="sm:hidden flex justify-center py-2 border-t">
+            <div className="w-10 h-1 rounded-full bg-gray-300" />
           </div>
         </div>
       </div>

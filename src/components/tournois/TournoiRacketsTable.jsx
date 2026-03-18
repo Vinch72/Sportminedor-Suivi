@@ -26,6 +26,10 @@
   // toast: { type: "success"|"error"|"info", title: string, message?: string }
 
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterRacket, setFilterRacket] = useState(false);
+  const [filterBill,   setFilterBill]   = useState(false);
+  const [filterRet,    setFilterRet]    = useState(false);
 
   function showToast(t) {
     setToast(t);
@@ -522,6 +526,27 @@
       prev.eurosCents += gainCents;
       gainsByCordeur.set(key, prev);
     }
+    const normStr = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+    const filteredRows = useMemo(() => {
+      const q = normStr(searchQuery);
+      const anyFlag = filterRacket || filterBill || filterRet;
+      return (rows || []).filter(r => {
+        if (anyFlag) {
+          const f = deriveFlags(r);
+          if (filterRacket && !f.racket) return false;
+          if (filterBill   && !f.bill)   return false;
+          if (filterRet    && !f.ret)    return false;
+        }
+        if (q) {
+          const client = normStr(`${r.client?.nom || ""} ${r.client?.prenom || ""}`);
+          const raquette = normStr(r.raquette || "");
+          const cordage = normStr(r.cordage?.cordage || r.cordage_id || "");
+          if (!client.includes(q) && !raquette.includes(q) && !cordage.includes(q)) return false;
+        }
+        return true;
+      });
+    }, [rows, searchQuery, filterRacket, filterBill, filterRet]);
+
     const gainsCalc = Array.from(gainsByCordeur.values())
       .sort((a,b) => b.eurosCents - a.eurosCents || a.cordeur.localeCompare(b.cordeur));
     const totalGainCents = gainsCalc.reduce((sum, g) => sum + (g.eurosCents || 0), 0);
@@ -620,6 +645,7 @@
   }, [stats, tournoiName, gainsCalc, gainsByCordeurCordage]);
 
     return (
+      <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
   <div className="text-lg font-semibold">Suivi du tournoi</div>
   <div className="flex items-center gap-2">
@@ -636,12 +662,55 @@
       Ajouter toutes au Suivi
     </button>
   </div>
+  </div>
+
+      {/* Barre de filtre */}
+  <div className="mt-3 flex flex-wrap items-center gap-2">
+    <input
+      type="search"
+      className="input-field flex-1 min-w-[180px]"
+      placeholder="🔍 Client, raquette, cordage…"
+      value={searchQuery}
+      onChange={e => setSearchQuery(e.target.value)}
+    />
+    {/* Pills filtres */}
+    {[
+      { active: filterRacket, set: setFilterRacket, icon: "🏸", label: "Fait" },
+      { active: filterBill,   set: setFilterBill,   icon: "💶", label: "Payé" },
+      { active: filterRet,    set: setFilterRet,    icon: "↩️", label: "Rendu" },
+    ].map(({ active, set, icon, label }) => (
+      <button
+        key={label}
+        type="button"
+        title={label}
+        onClick={() => set(v => !v)}
+        className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-full border text-sm font-medium transition ${
+          active
+            ? "bg-green-500 text-white border-green-600"
+            : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+        }`}
+      >
+        <span>{icon}</span>
+        <span>{label}</span>
+      </button>
+    ))}
+    {(searchQuery || filterRacket || filterBill || filterRet) && (
+      <button
+        className="icon-btn shrink-0"
+        title="Effacer les filtres"
+        onClick={() => { setSearchQuery(""); setFilterRacket(false); setFilterBill(false); setFilterRet(false); }}
+      >✕</button>
+    )}
+  </div>
+  {(searchQuery || filterRacket || filterBill || filterRet) && (
+    <div className="mt-1 text-xs text-gray-400">{filteredRows.length} / {rows.length} raquette(s)</div>
+  )}
 
       {/* Lignes */}
   <div ref={scrollRef} className="mt-3 space-y-2">
     {loading && <div className="py-4 text-sm text-gray-600">Chargement…</div>}
 
-    {!loading && rows.map((r) => {
+    {!loading && filteredRows.map((r) => {
       const busy = exportingId === r.id;
       const isOffert = r.offert === true || /offert/i.test(String(r.reglement_mode || ""));
       const pay = isOffert ? { emoji: "🎁", label: "Offert" } : paymentMeta(r.reglement_mode);
@@ -745,30 +814,30 @@
             </div>
 
             {/* Pictos + règlement + tarif */}
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <button type="button" className={pill(flags.racket)} title="Fait / Pas fait" onClick={() => toggleRacket(r)}>
-                <span aria-hidden>🏸</span>
-              </button>
-              <button type="button" className={pill(flags.bill)} title="Payé / Non payé" onClick={() => setPayDialog({ rows: [r] })}>
-                <span aria-hidden>💶</span>
-              </button>
-              <button type="button" className={pill(flags.ret)} title="Rendu / Non rendu" onClick={() => toggleReturn(r)}>
-                <span aria-hidden>↩️</span>
-              </button>
-
-              <button
-                type="button"
-                className="ml-2 inline-flex items-center gap-2 text-sm icon-btn whitespace-nowrap"
-                title="Définir / modifier le règlement"
-                onClick={() => setPayDialog({ rows: [r] })}
-              >
-                <span className="text-gray-600">Règlement:</span>
-                <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                  <span aria-hidden>{pay.emoji}</span> {pay.label}
-                </span>
-              </button>
-
-              <span className="text-sm font-medium">{fmtEuro(tarif)}</span>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 shrink-0">
+                <button type="button" className={pill(flags.racket)} title="Fait / Pas fait" onClick={() => toggleRacket(r)}>
+                  <span aria-hidden>🏸</span>
+                </button>
+                <button type="button" className={pill(flags.bill)} title="Payé / Non payé" onClick={() => setPayDialog({ rows: [r] })}>
+                  <span aria-hidden>💶</span>
+                </button>
+                <button type="button" className={pill(flags.ret)} title="Rendu / Non rendu" onClick={() => toggleReturn(r)}>
+                  <span aria-hidden>↩️</span>
+                </button>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-auto">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded-lg border bg-white hover:bg-gray-50 whitespace-nowrap"
+                  title="Définir / modifier le règlement"
+                  onClick={() => setPayDialog({ rows: [r] })}
+                >
+                  <span aria-hidden>{pay.emoji}</span>
+                  <span className="text-gray-700">{pay.label}</span>
+                </button>
+                <span className="text-sm font-bold text-gray-900 whitespace-nowrap">{fmtEuro(tarif)}</span>
+              </div>
             </div>
           </div>
 

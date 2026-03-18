@@ -53,25 +53,25 @@ function OverlayModal({ open, title, onClose, children }) {
       aria-modal="true"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]" />
+      <div className="fixed inset-0 modal-overlay" />
       <div
         className="relative z-[10000] w-full max-w-5xl mx-4 max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-            <h2 className="text-xl font-semibold text-brand-dark flex items-center gap-2 leading-none">
-              <span aria-hidden>🏸</span>
-              <span>Ajouter une raquette</span>
-            </h2>
-            <button
-              type="button"
-              aria-label="Fermer"
-              onClick={onClose}
-              className="h-9 w-9 rounded-full hover:bg-gray-100 text-brand-dark flex items-center justify-center text-xl"
-            >
-              ×
-            </button>
+          <div className="px-5 py-4 border-b border-gray-100">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: "rgba(225,6,0,0.08)" }}>
+                  🏸
+                </div>
+                <div>
+                  <h2 className="font-bold text-gray-900 text-base leading-tight">Ajouter une raquette</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Enregistrez une nouvelle raquette à corder.</p>
+                </div>
+              </div>
+              <button type="button" aria-label="Fermer" onClick={onClose} className="h-8 w-8 rounded-full border flex items-center justify-center text-gray-500 hover:bg-gray-50 shrink-0 mt-0.5">✕</button>
+            </div>
           </div>
           <div className="p-4 md:p-6 overflow-y-auto max-h-[calc(85vh-72px)]">
             {children}
@@ -158,40 +158,43 @@ function Shell() {
         />
       )}
 
-      <Routes>
-        {/* Public */}
-        <Route path="/login"   element={<Login />} />
-        <Route path="/tournoi" element={<TournoiPublic />} />
-        <Route path="/mentions-legales" element={<MentionsLegales />} />
+      {/* Décale le contenu pour laisser place à la sidebar (desktop) ou à la topbar (mobile) */}
+      <div className={!isPublicPage ? "md:pl-56 pt-14 md:pt-0" : ""}>
+        <Routes>
+          {/* Public */}
+          <Route path="/login"   element={<Login />} />
+          <Route path="/tournoi" element={<TournoiPublic />} />
+          <Route path="/mentions-legales" element={<MentionsLegales />} />
 
-        {/* Private */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/suivi"    element={<App />} />
-          <Route path="/"         element={<Navigate to="/suivi" replace />} />
-          <Route path="/stats"    element={<Stats />} />
-          <Route path="/donnees"  element={<Donnees />} />
-          <Route path="/tournois" element={<TournoisPage />} />
-          <Route path="/clients"  element={<Clients />} />
-          <Route path="/clubs"    element={<Clubs />} />
-        </Route>
-      </Routes>
+          {/* Private */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/suivi"    element={<App />} />
+            <Route path="/"         element={<Navigate to="/suivi" replace />} />
+            <Route path="/stats"    element={<Stats />} />
+            <Route path="/donnees"  element={<Donnees />} />
+            <Route path="/tournois" element={<TournoisPage />} />
+            <Route path="/clients"  element={<Clients />} />
+            <Route path="/clubs"    element={<Clubs />} />
+          </Route>
+        </Routes>
 
-      {!isPublicPage && !isTournamentOnly && (
-        <OverlayModal
-          open={addOpen}
-          title="🏸 Ajouter une raquette"
-          onClose={() => setAddOpen(false)}
-        >
-          <SuiviForm
-            editingId={null}
-            initialData={null}
-            onDone={() => {
-              setAddOpen(false);
-              window.dispatchEvent(new CustomEvent("suivi:created"));
-            }}
-          />
-        </OverlayModal>
-      )}
+        {!isPublicPage && !isTournamentOnly && (
+          <OverlayModal
+            open={addOpen}
+            title="🏸 Ajouter une raquette"
+            onClose={() => setAddOpen(false)}
+          >
+            <SuiviForm
+              editingId={null}
+              initialData={null}
+              onDone={() => {
+                setAddOpen(false);
+                window.dispatchEvent(new CustomEvent("suivi:created"));
+              }}
+            />
+          </OverlayModal>
+        )}
+      </div>
     </>
   );
 }

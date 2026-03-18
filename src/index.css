@@ -4,7 +4,7 @@
 
 @layer components {
   .section-title { @apply text-2xl font-bold mb-3; }
-  .section-bar { @apply bg-black text-white rounded-xl px-4 py-2 block w-full; }
+  .section-bar { @apply bg-gray-100 text-gray-600 rounded-xl px-4 py-2 block w-full text-sm font-semibold; }
 
   /* Underline uniquement le texte "Données" quand l'onglet est actif */
   .nav-donnees .lock {
@@ -26,15 +26,42 @@
   .btn-red:hover { @apply opacity-90; }
   .btn-red:disabled { opacity:.5; cursor:not-allowed; }
 
-  .icon-btn     { @apply p-1.5 rounded-lg text-black; }
-  /* pas de hover:bg-black/5 ici -> on met la couleur en CSS pur */
-  .icon-btn:hover { background-color: rgb(0 0 0 / 0.05); }
+  .icon-btn {
+    height: 2.25rem; width: 2.25rem;
+    border-radius: 9999px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #374151;
+    transition: background-color 150ms;
+    cursor: pointer;
+  }
+  .icon-btn:hover { background-color: #f9fafb; }
 
-  .icon-btn-red { @apply p-1.5 rounded-lg; color:#E10600; }
-  /* hover équivalent à bg-red-50 sans slashs/arbitrary */
-  .icon-btn-red:hover { background-color: rgb(254 242 242); } /* ~ red-50 */
+  .icon-btn-red {
+    height: 2.25rem; width: 2.25rem;
+    border-radius: 9999px;
+    border: 1px solid #fecaca;
+    background: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #ef4444;
+    transition: background-color 150ms;
+    cursor: pointer;
+  }
+  .icon-btn-red:hover { background-color: #fef2f2; }
 
   .card { @apply rounded-2xl border border-gray-200 p-3 bg-white shadow-sm; }
+
+  .input-field {
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid #e5e7eb;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #111827;
+    background: #fff;
+  }
+  .input-field:focus { outline: none; border-color: #9ca3af; }
 
   /* Overlay sombre pour toutes les modales */
   .modal-overlay { background-color: rgba(0, 0, 0, 0.8); }
@@ -42,5 +69,52 @@
   /* Forcer du texte blanc dans la nav (sinon noir sur noir) */
 .nav-link .tab-text { color:#fff !important; }
 .nav-link { color:#fff !important; }
+
+/* ── Sidebar (Tailwind v2 ne supporte pas text-white/70, bg-white/10…) ── */
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  transition: background-color 150ms, color 150ms;
+  color: rgba(255,255,255,0.7);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  width: 100%;
+}
+.sidebar-link:hover {
+  color: #fff;
+  background-color: rgba(255,255,255,0.1);
+}
+.sidebar-link--active {
+  color: #fff !important;
+  background-color: rgba(255,255,255,0.15) !important;
+}
+.sidebar-divider {
+  height: 1px;
+  background-color: rgba(255,255,255,0.1);
+  margin: 0 0.5rem 0.5rem;
+}
+.sidebar-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  transition: background-color 150ms, color 150ms;
+  color: rgba(255,255,255,0.7);
+  font-size: 0.875rem;
+  font-weight: 500;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.sidebar-logout:hover {
+  color: #fff;
+  background-color: rgba(255,255,255,0.1);
+}
 }
   

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, Fragment } from "react";
 import { supabase } from "../utils/supabaseClient";
-import logo from "../assets/sportminedor-logo.png";
+import PageHeader from "../components/ui/PageHeader";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell as PieCell,
@@ -464,14 +464,11 @@ export default function Stats() {
     <div style={{ minHeight: "100vh", background: "#f7f7f8", padding: "32px 24px", fontFamily: "system-ui, sans-serif" }}>
       <div style={{ width: "100%" }}>
 
-        {/* Titre */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-          <img src={logo} alt="" style={{ width: 32, height: 32, borderRadius: "50%" }} />
-          <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: "#111" }}>Statistiques</h1>
-          <span style={{ marginLeft: "auto", fontSize: 12, color: "#bbb" }}>
-            Saison {new Date(startISO).getFullYear()}–{new Date(endISO).getFullYear()}
-          </span>
-        </div>
+        <PageHeader
+          title="Statistiques"
+          description="Analysez vos performances et revenus par saison et par mois."
+          action={<span className="text-xs text-gray-400">Saison {new Date(startISO).getFullYear()}–{new Date(endISO).getFullYear()}</span>}
+        />
 
         {loading && <div style={{ color: "#999", fontSize: 14 }}>Chargement…</div>}
         {err && <div style={{ color: "#E10600", fontSize: 14 }}>Erreur : {err}</div>}

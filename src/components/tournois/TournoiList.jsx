@@ -383,7 +383,7 @@ export default function TournoiList({ onEdit, onOpen, onOpenVentes, query = "" }
 
                                   {/* Éditer */}
                                   <button
-                                    className="h-9 w-9 rounded-full border bg-white hover:bg-gray-50 flex items-center justify-center"
+                                    className="icon-btn"
                                     onClick={() => onEdit?.(t)}
                                     aria-label="Éditer"
                                     title="Éditer"
@@ -391,9 +391,8 @@ export default function TournoiList({ onEdit, onOpen, onOpenVentes, query = "" }
                                     <IconEdit />
                                   </button>
 
-                                  {/* Supprimer */}
                                   <button
-                                    className="h-9 w-9 rounded-full border border-red-200 bg-white hover:bg-red-50 flex items-center justify-center"
+                                    className="icon-btn-red"
                                     onClick={() => onDelete(t.tournoi)}
                                     aria-label="Supprimer"
                                     title="Supprimer"

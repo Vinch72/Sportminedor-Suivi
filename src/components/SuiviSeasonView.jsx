@@ -815,70 +815,51 @@ async function markMessageSent(row) {
         className="grid items-center gap-3 bg-gray-100 rounded-lg shadow-sm border border-transparent hover:bg-white hover:border-[#E10600] hover:shadow transition-colors duration-150 px-3 py-2"
         style={{
           gridTemplateColumns:
-            "minmax(260px,1.8fr) minmax(120px,1fr) minmax(200px,1.2fr) minmax(120px,0.9fr) 120px 64px 160px 130px 72px",
+            "minmax(0,1.8fr) minmax(0,1.4fr) minmax(0,0.9fr) 100px 60px 152px 110px 64px",
         }}
       >
+        {/* Colonne 1 : date + client + icônes tél & note */}
         <div className="min-w-0 flex items-center">
-  <span className="text-gray-500 shrink-0 mr-2">{fmtDate(r.date)}</span>
-
-  {/* nom client */}
-  <span className="truncate flex-1 min-w-0">
-    {clientLabel(r, mapClient)}
-  </span>
-
-  {/* colonne icône téléphone */}
-  <div className="w-[40px] shrink-0 flex justify-end">
-    {r.client_phone && (
-      <button
-        type="button"
-        className="text-xs px-2 py-1 rounded-full border bg-white hover:bg-gray-50"
-        title={`Téléphone: ${r.client_phone}`}
-        onClick={() =>
-          setPhoneDialog({
-            name: clientLabel(r, mapClient),
-            phone: r.client_phone,
-          })
-        }
-      >
-        📞
-      </button>
-    )}
-  </div>
+          <span className="text-gray-500 shrink-0 mr-2">{fmtDate(r.date)}</span>
+          <span className="truncate flex-1 min-w-0">{clientLabel(r, mapClient)}</span>
+          <div className="shrink-0 flex items-center gap-1 ml-1">
+            {r.client_phone && (
+              <button
+                type="button"
+                className="text-xs px-2 py-1 rounded-full border bg-white hover:bg-gray-50"
+                title={`Téléphone: ${r.client_phone}`}
+                onClick={() => setPhoneDialog({ name: clientLabel(r, mapClient), phone: r.client_phone })}
+              >
+                📞
+              </button>
+            )}
+            {r.note && (
+              <button
+                type="button"
+                className="w-7 h-7 rounded-full border bg-white hover:bg-gray-50"
+                title="Voir la note"
+                onClick={(e) => { e.stopPropagation(); setNoteDialog({ title: `${clientLabel(r, mapClient)} • ${r.raquette || "—"}`, note: r.note }); }}
+              >
+                📝
+              </button>
+            )}
+          </div>
         </div>
-       <div className="min-w-0 flex items-center">
-  {/* modèle raquette */}
-  <span className="truncate flex-1 min-w-0">
-    {r.raquette || "—"}
-  </span>
 
-  {/* colonne icône note */}
-  <div className="w-[40px] shrink-0 flex justify-end">
-    {r.note ? (
-      <button
-        type="button"
-        className="w-7 h-7 rounded-full border bg-white hover:bg-gray-50"
-        title="Voir la note"
-        onClick={(e) => {
-          e.stopPropagation();
-          setNoteDialog({
-            title: `${clientLabel(r, mapClient)} • ${r.raquette || "—"}`,
-            note: r.note,
-          });
-        }}
-      >
-        📝
-      </button>
-    ) : null}
-  </div>
-</div>
-        <div className="min-w-0 flex items-center gap-1 font-semibold text-sm md:text-base truncate">
-          <Pastille value={r.couleur} />
-          <span className="truncate">{mapCordage.get(r.cordage_id) || r.cordage_id || "—"}</span>
-          {r.tension && <span className="mx-1 font-normal text-gray-700">•</span>}
-          <span className="truncate">{r.tension || "—"}</span>
+        {/* Colonne 2 : raquette (italique) + cordage/tension en dessous */}
+        <div className="min-w-0">
+          <div className="truncate italic font-bold text-sm text-gray-800">{r.raquette || "—"}</div>
+          <div className="flex items-center gap-1 text-xs text-gray-500 truncate mt-0.5">
+            <Pastille value={r.couleur} />
+            <span className="truncate">{mapCordage.get(r.cordage_id) || r.cordage_id || "—"}</span>
+            {r.tension && <><span>•</span><span>{r.tension}</span></>}
+          </div>
         </div>
-        <div className="min-w-0 truncate text-sm text-gray-700">
-          {(r.club && String(r.club)) || (r.club_id && String(r.club_id)) || "—"}
+
+        {/* Colonne 3 : club — police différente pour distinguer l'info */}
+        <div className="min-w-0 flex items-center gap-1 truncate text-xs font-semibold tracking-wide uppercase text-gray-400">
+          {((r.club && String(r.club)) || (r.club_id && String(r.club_id))) && <span aria-hidden>🛡️</span>}
+          <span className="truncate">{(r.club && String(r.club)) || (r.club_id && String(r.club_id)) || "—"}</span>
         </div>
         <div className="min-w-0">
           <select
@@ -895,7 +876,7 @@ async function markMessageSent(row) {
             {paymentModes.map(pm => <option key={pm.code} value={pm.code}>{pm.label}</option>)}
           </select>
         </div>
-        <div className="text-right text-sm">{tarifLabel}</div>
+        <div className="text-right font-bold text-base text-gray-900">{tarifLabel}</div>
         <div className="flex items-center justify-center gap-2">
           <button type="button" className={pill(flags.racket)} title="Fait / Pas fait" onClick={() => toggleRacket(r)}>🏸</button>
           <button type="button" className={pill(flags.bill)}   title="Payé / Non payé" onClick={() => toggleBill(r)}>💶</button>
@@ -984,7 +965,7 @@ function ProgressiveMonthList({ items, isSmall, RowMobile, RowDesktop }) {
 
   // ===== Render =====  
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       <SuiviFilters
         filters={filters}
         onChange={(next) => setFilters((prev) => ({ ...prev, ...next }))}
@@ -1000,9 +981,9 @@ function ProgressiveMonthList({ items, isSmall, RowMobile, RowDesktop }) {
         const openS = !!openSeasons[season];
         return (
           <div key={season} className="card">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
               <div className="section-bar">{`Saison ${season}`}</div>
-              <button className="icon-btn" onClick={() => setOpenSeasons(p => ({ ...p, [season]: !openS }))}>{openS ? "▾" : "▸"}</button>
+              <button className="icon-btn shrink-0" onClick={() => setOpenSeasons(p => ({ ...p, [season]: !openS }))}>{openS ? "▾" : "▸"}</button>
             </div>
 
             {openS && (
@@ -1053,109 +1034,85 @@ for (const r of done) {
 }
 
     return (
-  <div className="mt-3 grid md:grid-cols-4 gap-3">
+  <div className="mt-2 grid md:grid-cols-4 gap-2">
 
     {/* Argent total */}
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Revenu du mois</span>
-        <span className="text-base">💰</span>
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2.5 flex items-center gap-3">
+      <span className="text-lg shrink-0">💰</span>
+      <div className="min-w-0">
+        <div className="text-xs text-gray-400 uppercase tracking-wide">Revenu du mois</div>
+        <div className="text-base font-extrabold text-gray-900 tracking-tight leading-tight">{euro(totalRevenue)}</div>
+        <div className="text-xs text-gray-400">{done.length} facturée{done.length > 1 ? "s" : ""}</div>
       </div>
-      <div className="text-2xl font-extrabold text-gray-900 tracking-tight">{euro(totalRevenue)}</div>
-      <div className="text-xs text-gray-400">{done.length} raquette{done.length > 1 ? "s" : ""} facturées</div>
     </div>
 
-    {/* Raquettes par cordeur */}
-  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-2">
-    <div className="flex items-center justify-between">
-      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Par cordeur</span>
+    {/* Raquettes par cordeur — grille 2 colonnes, sans barre */}
+  <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2.5 flex flex-col gap-1.5">
+    <div className="flex items-center gap-2">
       <span className="text-base">🧑‍🔧</span>
+      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Par cordeur</span>
     </div>
-    <div className="flex flex-col gap-1.5 mt-1">
-      {Object.keys(countByCordeur).length === 0 && <span className="text-sm text-gray-300">—</span>}
-      {Object.entries(countByCordeur)
-      .sort((a, b) => b[1] - a[1])
-      .map(([k, v]) => {
-        const max = Math.max(...Object.values(countByCordeur));
-        const pct = Math.round(v / max * 100);
-        return (
-          <div key={k} className="flex items-center gap-2">
-            <span className="text-xs text-gray-700 w-20 truncate">{k}</span>
-            <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-              <div className="h-full rounded-full bg-[#E10600] opacity-70" style={{ width: `${pct}%` }} />
+    {Object.keys(countByCordeur).length === 0
+      ? <span className="text-xs text-gray-300">—</span>
+      : <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+          {Object.entries(countByCordeur).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
+            <div key={k} className="flex items-center justify-between gap-1 min-w-0">
+              <span className="text-xs text-gray-600 truncate">{k}</span>
+              <span className="text-xs font-bold text-gray-800 shrink-0">{v}</span>
             </div>
-            <span className="text-xs font-bold w-6 text-right">{v}</span>
-          </div>
-        );
-      })}
-  </div>
-</div>
-
-    {/* Gains cordeurs magasin */}
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Gains magasin</span>
-        <span className="text-base">🏪</span>
-      </div>
-      {Object.keys(gainsByCordeur).length === 0 ? (
-        <span className="text-sm text-gray-300 mt-1">—</span>
-      ) : (
-        <div className="flex flex-col gap-1.5 mt-1">
-          {Object.entries(gainsByCordeur)
-  .sort(([, a], [, b]) => b - a)
-  .map(([k, v]) => (
-    <div key={k} className="flex items-center justify-between">
-      <button
-        type="button"
-        className="text-xs text-[#E10600] font-semibold hover:underline text-left"
-        onClick={() => {
-          const lignes = done.filter(r => {
-            const nom = (mapCordeur.get(r.cordeur_id) || r.cordeur_id || "").trim();
-            return nom === k;
-          });
-          const magasinMap = {};
-          let magasinCount = 0, magasinGainCents = 0;
-          for (const r of lignes) {
-            const lieu = r.lieu_id || r.club_id || r.club;
-            if (!isMagasin(lieu)) continue;
-            const nom = (mapCordeur.get(r.cordeur_id) || r.cordeur_id || "").trim();
-            const eligible = nom && remunMagasinSet.has(U(nom));
-            const gainCents = eligible ? computeGainMagasinCents(r, cordagesById) : 0;
-            const key = (r.cordage_id || "—") + (r.fourni ? "_fourni" : "");
-            if (!magasinMap[key]) magasinMap[key] = { cordage: r.cordage_id || "—", fourni: !!r.fourni, count: 0, gainCents: 0 };
-            magasinMap[key].count += 1;
-            magasinMap[key].gainCents += gainCents;
-            magasinCount += 1;
-            magasinGainCents += gainCents;
-          }
-          setCordeurDetailDialog({
-            cordeur: k,
-            totalCount: magasinCount,
-            totalGainCents: magasinGainCents,
-            magasin: Object.values(magasinMap).sort((a, b) => b.count - a.count),
-            magasinCount,
-            magasinGainCents,
-          });
-        }}
-      >
-        {k}
-      </button>
-      <span className="text-xs font-bold text-[#E10600]">{euro(v / 100)}</span>
-    </div>
-  ))}
+          ))}
         </div>
-      )}
+    }
+  </div>
+
+    {/* Gains cordeurs magasin — grille 2 colonnes */}
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2.5 flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <span className="text-base">🏪</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Gains magasin</span>
+      </div>
+      {Object.keys(gainsByCordeur).length === 0
+        ? <span className="text-xs text-gray-300">—</span>
+        : <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+            {Object.entries(gainsByCordeur).sort(([, a], [, b]) => b - a).map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between gap-1 min-w-0">
+                <button
+                  type="button"
+                  className="text-xs font-semibold truncate text-left hover:underline text-gray-800"
+                  onClick={() => {
+                    const lignes = done.filter(r => (mapCordeur.get(r.cordeur_id) || r.cordeur_id || "").trim() === k);
+                    const magasinMap = {};
+                    let magasinCount = 0, magasinGainCents = 0;
+                    for (const r of lignes) {
+                      const lieu = r.lieu_id || r.club_id || r.club;
+                      if (!isMagasin(lieu)) continue;
+                      const nom = (mapCordeur.get(r.cordeur_id) || r.cordeur_id || "").trim();
+                      const eligible = nom && remunMagasinSet.has(U(nom));
+                      const gainCents = eligible ? computeGainMagasinCents(r, cordagesById) : 0;
+                      const key = (r.cordage_id || "—") + (r.fourni ? "_fourni" : "");
+                      if (!magasinMap[key]) magasinMap[key] = { cordage: r.cordage_id || "—", fourni: !!r.fourni, count: 0, gainCents: 0 };
+                      magasinMap[key].count += 1;
+                      magasinMap[key].gainCents += gainCents;
+                      magasinCount += 1;
+                      magasinGainCents += gainCents;
+                    }
+                    setCordeurDetailDialog({ cordeur: k, totalCount: magasinCount, totalGainCents: magasinGainCents, magasin: Object.values(magasinMap).sort((a, b) => b.count - a.count), magasinCount, magasinGainCents });
+                  }}
+                >{k}</button>
+                <span className="text-xs font-bold shrink-0 text-gray-800">{euro(v / 100)}</span>
+              </div>
+            ))}
+          </div>
+      }
     </div>
 
     {/* Entrées */}
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Entrées</span>
-        <span className="text-base">🏸</span>
-      </div>
-      <div className="text-2xl font-extrabold text-gray-900 tracking-tight">{items.length}</div>
-      <div className="text-xs text-gray-400">
-        {done.length} faite{done.length > 1 ? "s" : ""} · {items.length - done.length} à faire
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2.5 flex items-center gap-3">
+      <span className="text-lg shrink-0">🏸</span>
+      <div className="min-w-0">
+        <div className="text-xs text-gray-400 uppercase tracking-wide">Entrées</div>
+        <div className="text-base font-extrabold text-gray-900 tracking-tight leading-tight">{items.length}</div>
+        <div className="text-xs text-gray-400">{done.length} faite{done.length > 1 ? "s" : ""} · {items.length - done.length} à faire</div>
       </div>
     </div>
 

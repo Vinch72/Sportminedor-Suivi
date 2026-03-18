@@ -93,16 +93,36 @@ export default function Login() {
     >
       {/* petit “halo” rouge derrière la carte */}
       <div style={{ width: "100%", maxWidth: 440, position: "relative" }}>
-        <div
-          style={{
+
+        {/* ── Bulle message contextuel ── */}
+        <div style={{ position: "relative", marginBottom: 18, display: "flex", justifyContent: "center" }}>
+          <div style={{
+            background: "rgba(255,255,255,0.11)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.18)",
+            borderRadius: 14,
+            padding: "11px 18px",
+            fontSize: 13,
+            color: "rgba(255,255,255,0.92)",
+            textAlign: "center",
+            lineHeight: 1.55,
+            width: "100%",
+          }}>
+            {getContextualMessage()}
+          </div>
+          {/* Triangle pointant vers la carte */}
+          <div style={{
             position: "absolute",
-            inset: -10,
-            background:
-              "radial-gradient(240px 140px at 35% 0%, rgba(255,0,0,0.35), transparent 60%)",
-            filter: "blur(12px)",
-            zIndex: 0,
-          }}
-        />
+            bottom: -9,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 0, height: 0,
+            borderLeft: "9px solid transparent",
+            borderRight: "9px solid transparent",
+            borderTop: "9px solid rgba(255,255,255,0.18)",
+          }} />
+        </div>
 
         <div
           style={{
@@ -115,6 +135,15 @@ export default function Login() {
             border: "1px solid rgba(0,0,0,0.06)",
           }}
         >
+          {/* halo rouge derrière la carte */}
+          <div style={{
+            position: "absolute",
+            inset: -10,
+            background: "radial-gradient(240px 140px at 35% 0%, rgba(255,0,0,0.35), transparent 60%)",
+            filter: "blur(12px)",
+            zIndex: -1,
+          }} />
+
           {/* Header marque */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <img
@@ -122,13 +151,9 @@ export default function Login() {
               alt="Sportminedor"
               style={{ height: 100, width: "auto" }}
             />
-
             <div style={{ lineHeight: 1.1 }}>
               <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>
                 Suivi Cordage & Tournois
-              </div>
-              <div style={{ fontSize: 13, color: "#666", marginTop: 4 }}>
-                {getContextualMessage()}
               </div>
             </div>
           </div>

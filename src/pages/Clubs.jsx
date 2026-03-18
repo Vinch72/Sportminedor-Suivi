@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../utils/supabaseClient";
-import logo from "../assets/sportminedor-logo.png"
+import PageHeader from "../components/ui/PageHeader"
 
 // Helpers
 function normStr(s) {
@@ -552,28 +552,27 @@ async function openBobineLot(type, batchIndex) {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <img
-            src={logo}
-            alt=""
-            className="h-8 w-8 rounded-full select-none"
-          />
-          <span>Gestion des Clubs</span>
-        </h1>
-        <button
-          type="button"
-          onClick={() => { closeFormModal(); setFormOpen(true); }}
-          className="flex items-center gap-2 px-4 h-10 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition"
-          style={{ background: "#E10600" }}
-        >
-          + Ajouter un club
-        </button>
-      </div>
+      <PageHeader
+        title="Clubs"
+        description="Gérez les clubs partenaires et leurs tarifs de cordage associés."
+        action={
+          <button
+            type="button"
+            onClick={() => { closeFormModal(); setFormOpen(true); }}
+            className="flex items-center gap-2 px-4 h-10 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition"
+            style={{ background: "#E10600" }}
+          >
+            + Ajouter un club
+          </button>
+        }
+      />
 
       {/* Modal formulaire club */}
       {formOpen && (
-        <Modal narrow onClose={closeFormModal} title={isEdit ? "Modifier le club" : "Ajouter un club"}>
+        <Modal narrow onClose={closeFormModal} icon="🛡️"
+          title={isEdit ? "Modifier le club" : "Ajouter un club"}
+          subtitle={isEdit ? "Modifiez les informations du club." : "Renseignez les informations du nouveau club."}
+        >
           <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4">
             <Field label="Nom du club" required>
               <input className="w-full border rounded-lg p-2" value={name} onChange={e=>setName(e.target.value)} />
@@ -706,7 +705,7 @@ async function openBobineLot(type, batchIndex) {
           type="button"
           title="Modifier"
           onClick={(e) => { e.stopPropagation(); fillForm(c); }}
-          className="p-2 rounded-full hover:bg-gray-100 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          className="icon-btn"
         >
           <IconEdit />
         </button>
@@ -719,7 +718,7 @@ async function openBobineLot(type, batchIndex) {
             e.stopPropagation(); 
             setDeleteDialog({ name: c.clubs }); // ⬅️ on ouvre la modale jolie
           }}
-          className="p-2 rounded-full hover:bg-red-100 text-red-600 focus:outline-none focus:ring-2 focus:ring-red-300"
+          className="icon-btn-red"
         >
           <IconTrash />
         </button>
@@ -1129,7 +1128,7 @@ function Detail({ label, value }) {
   );
 }
 
-function Modal({ title, children, onClose, narrow = false }) {
+function Modal({ title, subtitle, icon, children, onClose, narrow = false }) {
   // Échap + bloque le scroll de la page
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose?.();
@@ -1147,28 +1146,26 @@ function Modal({ title, children, onClose, narrow = false }) {
       {/* Backdrop cliquable */}
       <div className="absolute inset-0 modal-overlay" onClick={onClose} />
 
-      {/* Carte centrée */}
-      <div className="absolute inset-0 flex justify-center px-3 py-4 sm:py-8 overflow-y-auto">
+      {/* Bottom sheet mobile / modal centré desktop */}
+      <div className="absolute inset-0 flex flex-col justify-end sm:justify-center sm:items-center sm:px-3">
         <div
-  className={`
-    relative bg-white shadow-card rounded-2xl
-    w-full ${narrow ? "max-w-sm" : "max-w-5xl"}
-    max-h-[85vh]
-    overflow-hidden flex flex-col
-  `}
->
-          {/* Header sticky (X) */}
-          <div className="sticky top-0 z-10 bg-white px-4 py-2.5 border-b flex items-center justify-between">
-            <h3 className="font-semibold text-base">{title}</h3>
-            <button
-  type="button"
-  onClick={onClose}
-  aria-label="Fermer"
-  className="h-9 w-9 rounded-full border flex items-center justify-center bg-white text-black hover:bg-gray-50"
-  style={{ zIndex: 20 }}
->
-  ✕
-</button>
+          className={`relative bg-white shadow-card rounded-t-2xl sm:rounded-2xl w-full overflow-hidden flex flex-col ${narrow ? "sm:max-w-sm" : "sm:max-w-2xl"}`}
+          style={{ maxHeight: "90vh" }}
+        >
+          {/* Header sticky */}
+          <div className="sticky top-0 z-10 bg-white px-5 py-4 border-b">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: "rgba(225,6,0,0.08)" }}>
+                  {icon || "🛡️"}
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base leading-tight">{title}</h3>
+                  {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+                </div>
+              </div>
+              <button type="button" onClick={onClose} aria-label="Fermer" className="h-8 w-8 rounded-full border flex items-center justify-center text-gray-500 hover:bg-gray-50 shrink-0 mt-0.5">✕</button>
+            </div>
           </div>
 
           {/* Contenu scrolable */}
@@ -1176,9 +1173,9 @@ function Modal({ title, children, onClose, narrow = false }) {
             {children}
           </div>
 
-          {/* Footer sticky : bouton bas surtout utile sur mobile */}
-          <div className="sticky bottom-0 bg-white px-4 py-2.5 border-t text-right sm:hidden">
-            <button onClick={onClose} className="px-4 py-2 rounded border">Fermer</button>
+          {/* Poignée visuelle bottom sheet (mobile only) */}
+          <div className="sm:hidden flex justify-center py-2 border-t">
+            <div className="w-10 h-1 rounded-full bg-gray-300" />
           </div>
         </div>
       </div>

@@ -5,7 +5,7 @@ import TournoiForm from "../components/tournois/TournoiForm";
 import TournoiList from "../components/tournois/TournoiList";
 import TournoiDetailModal from "../components/tournois/TournoiDetailModal";
 import TournoiVentesModal from "../components/tournois/TournoiVentesModal";
-import logo from "../assets/sportminedor-logo.png";
+import PageHeader from "../components/ui/PageHeader";
 
 function getParam(key) {
   return new URLSearchParams(window.location.search).get(key) || null;
@@ -59,20 +59,20 @@ export default function TournoisPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <img src={logo} alt="" className="h-7 w-7 rounded-full select-none" />
-          <h1 className="text-2xl font-bold">Tournois</h1>
-        </div>
-        <button
-          type="button"
-          onClick={() => { setEditing(null); setFormOpen(true); }}
-          className="flex items-center gap-2 px-4 h-10 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition"
-          style={{ background: "#E10600" }}
-        >
-          + Créer un tournoi
-        </button>
-      </div>
+      <PageHeader
+        title="Tournois"
+        description="Gérez vos tournois et les raquettes cordées sur place."
+        action={
+          <button
+            type="button"
+            onClick={() => { setEditing(null); setFormOpen(true); }}
+            className="flex items-center gap-2 px-4 h-10 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition"
+            style={{ background: "#E10600" }}
+          >
+            + Créer un tournoi
+          </button>
+        }
+      />
 
       {/* 🔎 Barre de recherche compacte (comme Clients/Clubs) */}
       <div className="mt-6">
@@ -108,7 +108,7 @@ export default function TournoisPage() {
       </div>
 
       {formOpen && (
-        <TournoiFormModal onClose={() => { setEditing(null); setFormOpen(false); }}>
+        <TournoiFormModal editing={editing} onClose={() => { setEditing(null); setFormOpen(false); }}>
           <TournoiForm
             initial={editing}
             onDone={() => { setEditing(null); setFormOpen(false); }}
@@ -122,7 +122,7 @@ export default function TournoisPage() {
   );
 }
 
-function TournoiFormModal({ children, onClose }) {
+function TournoiFormModal({ children, onClose, editing }) {
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose?.();
     window.addEventListener("keydown", onKey);
@@ -137,22 +137,32 @@ function TournoiFormModal({ children, onClose }) {
   return createPortal(
     <div className="fixed inset-0 z-[10000]">
       <div className="absolute inset-0 modal-overlay" onClick={onClose} />
-      <div className="absolute inset-0 flex items-center justify-center px-4 py-8">
+      {/* Bottom sheet mobile / modal centré desktop */}
+      <div className="absolute inset-0 flex flex-col justify-end sm:justify-center sm:items-center sm:px-4">
         <div
-          className="relative bg-white shadow-2xl rounded-2xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col"
+          className="relative bg-white shadow-2xl rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg overflow-hidden flex flex-col"
+          style={{ maxHeight: "90vh" }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="sticky top-0 bg-white px-4 py-3 border-b flex items-center justify-between">
-            <h3 className="font-semibold text-base">Tournoi</h3>
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-9 w-9 rounded-full border flex items-center justify-center hover:bg-gray-50"
-            >
-              ✕
-            </button>
+          <div className="sticky top-0 bg-white px-5 py-4 border-b">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: "rgba(225,6,0,0.08)" }}>
+                  🏆
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base leading-tight">
+                    {editing ? "Modifier le tournoi" : "Créer un tournoi"}
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {editing ? `Modification de "${editing.tournoi}"` : "Renseignez les informations du nouveau tournoi."}
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={onClose} className="h-8 w-8 rounded-full border flex items-center justify-center text-gray-500 hover:bg-gray-50 shrink-0 mt-0.5">✕</button>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="overflow-y-auto p-4">
             {children}
           </div>
         </div>

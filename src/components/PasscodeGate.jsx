@@ -42,43 +42,73 @@ export default function PasscodeGate({ children, ttlHours = 12 }) {
   }
 
   if (ok) {
-    return (
-      <div>
-        <div className="mb-3">
-          <button className="icon-btn" onClick={lock} title="Verrouiller la page">
-            🔒 Verrouiller
-          </button>
-        </div>
-        {children}
-      </div>
-    );
+    // Render prop : si children est une fonction, on lui passe { lock }
+    if (typeof children === "function") return children({ lock });
+    return <div>{children}</div>;
   }
 
   return (
-    <div className="min-h-[50vh] flex items-center justify-center">
+    <div
+      className="min-h-[calc(100vh-3.5rem)] md:min-h-screen flex items-center justify-center p-4"
+      style={{
+        background:
+          "radial-gradient(800px 500px at 30% 20%, rgba(225,6,0,0.07), transparent 60%), " +
+          "radial-gradient(600px 400px at 80% 70%, rgba(225,6,0,0.04), transparent 55%), " +
+          "linear-gradient(180deg, #f8f8f8 0%, #f1f1f1 100%)",
+      }}
+    >
       <form
         onSubmit={unlock}
-        className="card p-5 max-w-sm w-full border rounded-2xl bg-white shadow-sm"
+        className="w-full max-w-sm"
+        style={{
+          background: "rgba(255,255,255,0.95)",
+          borderRadius: 20,
+          padding: 28,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06)",
+          border: "1px solid rgba(0,0,0,0.06)",
+        }}
       >
-        <div className="text-lg font-semibold mb-2">Accès restreint</div>
-        <div className="text-sm text-gray-600 mb-3">
-          Entrez le code pour accéder aux données.
+        {/* Icône cadenas */}
+        <div className="flex justify-center mb-5">
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
+            style={{ background: "rgba(225,6,0,0.08)" }}
+          >
+            🔐
+          </div>
         </div>
+
+        <div className="text-center mb-5">
+          <div className="text-lg font-bold text-gray-900">Accès restreint</div>
+          <div className="text-sm text-gray-400 mt-1">
+            Entrez le code pour accéder aux données.
+          </div>
+        </div>
+
         <input
           type="password"
-          className="input input-bordered w-full text-black bg-white"
-          placeholder="Code"
+          className="input-field text-center text-lg tracking-widest"
+          placeholder="• • • • • •"
           value={v}
           onChange={(e) => setV(e.target.value)}
+          autoFocus
         />
-        {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
+
+        {err && (
+          <div className="mt-2 text-sm text-red-500 text-center">{err}</div>
+        )}
+
         <button
           type="submit"
-          className="btn-red mt-4 w-full rounded-xl text-white py-2"
-          style={{ background: "#E10600" }}
+          className="mt-4 w-full py-2.5 rounded-xl text-white font-bold text-sm transition"
+          style={{
+            background: "linear-gradient(180deg, #ff2b2b 0%, #c80000 100%)",
+            boxShadow: "0 8px 20px rgba(200,0,0,0.25)",
+          }}
         >
           Déverrouiller
         </button>
+
       </form>
     </div>
   );

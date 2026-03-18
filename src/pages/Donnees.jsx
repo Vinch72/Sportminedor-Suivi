@@ -5,6 +5,7 @@ import PasscodeGate, { isDonneesUnlocked } from "../components/PasscodeGate";
 import { IconEdit, IconTrash } from "../components/ui/Icons";
 import Toast from "../components/ui/Toast.jsx";
 import ConfirmModal from "../components/ui/ConfirmModal.jsx";
+import PageHeader from "../components/ui/PageHeader";
 
 // Utilitaires
 const euro = (n) => `${(Number(n)||0).toLocaleString("fr-FR")} €`;
@@ -16,6 +17,24 @@ const toCents = (v) => {
 const fromCents = (c) => (Number(c || 0) / 100).toFixed(2);
 function norm(s){
   return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+}
+
+// ─── Header local de section ────────────────────────────────────────────────
+function SectionHeader({ icon, title, sub }) {
+  return (
+    <div className="flex items-center gap-3 mb-1">
+      <div
+        className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0"
+        style={{ background: "rgba(225,6,0,0.08)" }}
+      >
+        {icon}
+      </div>
+      <div>
+        <div className="font-bold text-gray-900">{title}</div>
+        {sub && <div className="text-xs text-gray-400">{sub}</div>}
+      </div>
+    </div>
+  );
 }
 
 export default function Donnees() {
@@ -119,24 +138,13 @@ function askConfirm(config, action) {
   const [editStatutVal, setEditStatutVal] = useState("");
 
   // --- form: règles tarifaires (affichées en €) ---
-  // On mappe les 4 montants "clés" lisibles :
-  //  A) Sans bobine (club: base=false, specific=false)
-  //     - cordage basique  => 18€
-  //     - cordage spécifique => 20€
-  //  B) Club a bobine "base"        (base=true,  specific=false)
-  //     - cordage basique  => 12€
-  //     - cordage spécifique => 20€
-  //  C) Club a bobine base & specific (base=true, specific=true)
-  //     - cordage basique  => 12€
-  //     - cordage spécifique => 14€
-  // On expose les 4 valeurs distinctes que tu veux pouvoir modifier :
   const [T_sansBobine_base,      setT_sansBobine_base]      = useState("18");
   const [T_sansBobine_specific,  setT_sansBobine_specific]  = useState("20");
   const [T_bobineBase_base,      setT_bobineBase_base]      = useState("12");
   const [T_bobineSpec_specific,  setT_bobineSpec_specific]  = useState("14");
   const [T_express, setT_express] = useState("4");
-  const [F_fourni12, setF_fourni12] = useState("10");     // 12€ -> 10€
-  const [F_fourni14, setF_fourni14] = useState("11.66");  // 14€ -> 11,66€
+  const [F_fourni12, setF_fourni12] = useState("10");
+  const [F_fourni14, setF_fourni14] = useState("11.66");
 
 
   const locked = !isDonneesUnlocked();
@@ -174,13 +182,10 @@ function askConfirm(config, action) {
         if (!c8.error) setF_fourni14(fromCents(c8.data?.value_cents ?? 1166));
 
         // initialiser les inputs tarifs depuis la matrice
-        // sans bobine (false,false)
         const mSansBase  = c4.data.find(r => r.bobine_base===false && r.bobine_specific===false && r.is_base===true);
         const mSansSpec  = c4.data.find(r => r.bobine_base===false && r.bobine_specific===false && r.is_base===false);
-        // bobine base (true,false)
         const mBB_base   = c4.data.find(r => r.bobine_base===true && r.bobine_specific===false && r.is_base===true);
         const mBB_spec   = c4.data.find(r => r.bobine_base===true && r.bobine_specific===false && r.is_base===false);
-        // bobine base+spec (true,true)
         const mBS_base   = c4.data.find(r => r.bobine_base===true && r.bobine_specific===true && r.is_base===true);
         const mBS_spec   = c4.data.find(r => r.bobine_base===true && r.bobine_specific===true && r.is_base===false);
 
@@ -188,7 +193,6 @@ function askConfirm(config, action) {
         if (mSansSpec) setT_sansBobine_specific(fromCents(mSansSpec.price_cents));
         if (mBB_base)  setT_bobineBase_base(fromCents(mBB_base.price_cents));
         if (mBS_spec)  setT_bobineSpec_specific(fromCents(mBS_spec.price_cents));
-        // (les deux autres cas restent inchangés selon ta règle actuelle)
       } catch (e) {
         console.error(e);
         showToast("Erreur", "Erreur de chargement: " + (e.message || e), "warning");
@@ -209,7 +213,7 @@ function askConfirm(config, action) {
   }
   return true;
 }
-    
+
   // --- actions ---
   async function addPaymentMode(e){
   e?.preventDefault?.();
@@ -243,21 +247,21 @@ function askConfirm(config, action) {
   setPmCode(""); setPmLabel(""); setPmEmoji("");
   showToast("✅ Ajout", "Moyen de règlement ajouté !", "success");
 }
-  
+
   async function togglePaymentMode(pm){
     if (!requireUnlocked()) return;
     const { data, error } = await supabase.from("payment_modes").update({ enabled: !pm.enabled }).eq("code", pm.code).select("*").maybeSingle();
     if (error){ showToast("Erreur", error.message, "warning"); return; }
     setPaymentModes(prev => prev.map(x => x.code===pm.code ? data : x));
   }
-  
+
   async function updatePaymentMode(pm, patch){
     if (!requireUnlocked()) return;
     const { data, error } = await supabase.from("payment_modes").update(patch).eq("code", pm.code).select("*").maybeSingle();
     if (error){ showToast("Erreur", error.message, "warning"); return; }
     setPaymentModes(prev => prev.map(x => x.code===pm.code ? data : x));
   }
-  
+
   async function movePaymentMode(pm, dir){
     if (!requireUnlocked()) return;
     const idx = paymentModes.findIndex(x => x.code === pm.code);
@@ -271,7 +275,7 @@ function askConfirm(config, action) {
     [arr[idx], arr[idx+dir]] = [arr[idx+dir], arr[idx]];
     setPaymentModes(arr);
   }
-  
+
   async function deletePaymentMode(code){
   if (!requireUnlocked()) return;
 
@@ -367,7 +371,6 @@ async function saveEditCordage(oldName) {
   showToast("✅ Modification", "Cordage modifié !", "success");
 }
 
-// ---- Cordages : edit + delete ----
 async function deleteCordage(name) {
   if (!requireUnlocked()) return;
 
@@ -454,7 +457,6 @@ async function saveEditStatut(oldVal) {
     if (!requireUnlocked()) return;
     const next = editStatutVal.trim();
     if (!next) { showToast("Erreur", "Libellé requis", "warning"); return; }
-    // tentative d'UPDATE direct ; si FK strict sans ON UPDATE CASCADE, Postgres refusera.
     const { error } = await supabase.from("statuts")
       .update({ statut_id: next })
       .eq("statut_id", oldVal);
@@ -476,7 +478,6 @@ async function saveTarifs() {
   setLoading(true);
 
   try {
-    // 1) Sauvegarde Express
     const { data: expData, error: expressError } = await supabase
       .from("app_settings")
       .upsert({ key: "express_surcharge_cents", value_cents: toCents(T_express) })
@@ -491,7 +492,6 @@ async function saveTarifs() {
       return;
     }
 
-    // 1bis) Sauvegarde règles "fourni"
 const { data: f12, error: eF12 } = await supabase
   .from("app_settings")
   .upsert({ key: "fourni_gain_12_cents", value_cents: toCents(F_fourni12) })
@@ -512,7 +512,6 @@ if (eF14 || !f14?.length) {
   return;
 }
 
-    // 2) Maj des tarifs (on force un retour de lignes avec .select())
     const batch = [
       { match: { bobine_base: false, bobine_specific: false, is_base: true  }, price_cents: toCents(T_sansBobine_base) },
       { match: { bobine_base: false, bobine_specific: false, is_base: false }, price_cents: toCents(T_sansBobine_specific) },
@@ -534,7 +533,6 @@ if (eF14 || !f14?.length) {
         return;
       }
 
-      // ✅ si 0 ligne, on le dit clairement
       if (!updatedRows || updatedRows.length === 0) {
         showToast("Erreur", "Aucune ligne tarif_matrix modifiée pour : " +
           JSON.stringify(row.match) +
@@ -553,7 +551,6 @@ if (eF14 || !f14?.length) {
 
 // --- vues auxiliaires ---
 const tarifsPreview = useMemo(() => {
-    // reconstruit un aperçu lisible depuis la matrice
     const key = (bBase, bSpec, isBase) => `${bBase}-${bSpec}-${isBase}`;
     const map = Object.fromEntries((matrix||[]).map(r => [key(r.bobine_base, r.bobine_specific, r.is_base), r.price_cents]));
     return [
@@ -567,491 +564,372 @@ const tarifsPreview = useMemo(() => {
 }, [matrix]);
 
 return (
-    <PasscodeGate ttlHours={12}>
-      <div className="space-y-8">
-        <h1 className="text-2xl font-bold">Données</h1>
-        {loading && <div className="text-sm text-gray-500">Chargement…</div>}
+  <div className="p-6">
+  <PasscodeGate ttlHours={12}>
+    {({ lock }) => (
+    <>
+    <div className="space-y-6">
+      <PageHeader
+        title="Données"
+        description="Configurez les cordages, tarifs, modes de paiement et paramètres de l'application."
+        action={
+          <button
+            onClick={lock}
+            title="Verrouiller la page"
+            className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 transition px-3 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 bg-white"
+          >
+            🔒 Verrouiller
+          </button>
+        }
+      />
+      {loading && <div className="text-sm text-gray-400">Chargement…</div>}
 
-    {/* 1) Ajouter un cordage */}
-    <section className="card p-4">
-      <div className="section-bar">Cordages</div>
+      {/* ── 1) Cordages ── */}
+      <section className="card p-4">
+        <SectionHeader icon="🏸" title="Cordages" sub="Gérez les cordages disponibles et leurs paramètres de gain" />
 
-      <div className="mt-3 grid md:grid-cols-2 gap-6">
-        {/* Colonne gauche : ajout */}
-        <div>
-          <div className="text-sm font-medium mb-2">Ajouter un cordage</div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-600">Nom</label>
-              <input className="input input-bordered w-full text-black bg-white"
-                placeholder="ex: BG 65"
-                value={cordageName}
-                onChange={(e)=>setCordageName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-600">Couleur</label>
-              <input className="input input-bordered w-full text-black bg-white"
-                placeholder="none"
-                value={cordageColor}
-                onChange={(e)=>setCordageColor(e.target.value)}
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={cordageIsBase} onChange={e=>setCordageIsBase(e.target.checked)} />
-              Cordage basique
-            </label>
-            <div className="flex items-end">
-              <button className="btn-red px-4 py-2 rounded-xl text-white" style={{background:"#E10600"}} onClick={addCordage}>
-                Ajouter
-              </button>
+        <div className="mt-4 grid md:grid-cols-2 gap-6">
+          {/* Formulaire ajout */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="text-sm font-semibold text-gray-700 mb-3">Ajouter un cordage</div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Nom</label>
+                <input className="input-field" placeholder="ex: BG 65" value={cordageName} onChange={(e)=>setCordageName(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Couleur</label>
+                <input className="input-field" placeholder="none" value={cordageColor} onChange={(e)=>setCordageColor(e.target.value)} />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={cordageIsBase} onChange={e=>setCordageIsBase(e.target.checked)} />
+                Cordage basique
+              </label>
+              <div className="flex items-end">
+                <button className="btn-red" onClick={addCordage}>+ Ajouter</button>
+              </div>
             </div>
           </div>
-          <div className="mt-2 text-xs text-gray-500">Écrit dans <code>cordages(cordage, Couleur, is_base)</code>.</div>
-        </div>
 
-        {/* Colonne droite : liste + edit/delete */}
-        <div>
-          <div className="text-sm font-medium mb-2">Liste des cordages</div>
-          <div className="divide-y">
-            {cordages.map((c, i)=>(
-              <div key={c.cordage} className="py-2 flex items-center justify-between gap-3">
-                {editCordageIdx===i ? (
-                  <div className="flex-1 grid sm:grid-cols-5 gap-2">
-                    <input className="input input-bordered text-black bg-white"
-                      defaultValue={c.cordage}
-                      onChange={(e)=>setEditCordageVal(v=>({...v, cordage:e.target.value}))}
-                    />
-                    <input className="input input-bordered text-black bg-white"
-                      defaultValue={c.Couleur || "none"}
-                      onChange={(e)=>setEditCordageVal(v=>({...v, Couleur:e.target.value}))}
-                    />
-                    <label className="flex items-center gap-2 text-sm">
-                      <input type="checkbox"
-                        defaultChecked={!!c.is_base}
-                        onChange={(e)=>setEditCordageVal(v=>({...v, is_base:e.target.checked}))}
-                      />
-                      basique
-                    </label>
-                    <div>
-  <label className="text-xs text-gray-600">Gain tournoi (€)</label>
-  <input
-    type="number" step="0.01" min="0"
-    className="input input-bordered text-black bg-white w-full"
-    defaultValue={(c.gain_cents ?? 0) / 100}
-    onChange={(e)=> {
-      const v = parseFloat(e.target.value || "0");
-      setEditCordageVal(vv => ({ ...vv, gain_cents: isNaN(v) ? null : Math.round(v*100) }));
-    }}
-  />
-</div>
-
-<div>
-  <label className="text-xs text-gray-600">Gain magasin (€)</label>
-  <input
-    type="number" step="0.01" min="0"
-    className="input input-bordered text-black bg-white w-full"
-    defaultValue={(c.gain_magasin_cents ?? 0) / 100}
-    onChange={(e)=> {
-      const v = parseFloat(e.target.value || "0");
-      setEditCordageVal(vv => ({ ...vv, gain_magasin_cents: isNaN(v) ? null : Math.round(v*100) }));
-    }}
-  />
-</div>
-                  </div>
-                ) : (
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{c.cordage}</div>
-                    <div className="text-xs text-gray-600">
-                      Couleur: <b>{c.Couleur || "none"}</b> • Type: <b>{c.is_base ? "basique" : "spécifique"}</b>
-                      {typeof c.gain_cents === "number" && (
-  <> • Gain tournoi: <b>{(c.gain_cents/100).toLocaleString("fr-FR")} €</b></>
-)}
-{typeof c.gain_magasin_cents === "number" && (
-  <> • Gain magasin: <b>{(c.gain_magasin_cents/100).toLocaleString("fr-FR")} €</b></>
-)}
-                    </div>
-                  </div>
-                )}
-
-                <div className="shrink-0 flex items-center gap-2">
+          {/* Liste */}
+          <div>
+            <div className="text-sm font-semibold text-gray-700 mb-3">
+              Liste <span className="text-gray-400 font-normal">({cordages.length})</span>
+            </div>
+            <div className="divide-y divide-gray-100 max-h-72 overflow-y-auto pr-1">
+              {cordages.map((c, i) => (
+                <div key={c.cordage} className="py-2.5 flex items-start justify-between gap-3">
                   {editCordageIdx===i ? (
-                    <>
-                      <button className="icon-btn" title="Enregistrer" onClick={()=>saveEditCordage(c.cordage)}>💾</button>
-                      <button className="icon-btn" title="Annuler" onClick={() => {
-  setEditCordageIdx(-1);
-  setEditCordageVal({ cordage:"", Couleur:"none", is_base:false, gain_cents:null, gain_magasin_cents:null });
-}}>✖</button>
-                    </>
+                    <div className="flex-1 grid sm:grid-cols-5 gap-2">
+                      <input className="input-field" defaultValue={c.cordage} onChange={(e)=>setEditCordageVal(v=>({...v, cordage:e.target.value}))} />
+                      <input className="input-field" defaultValue={c.Couleur || "none"} onChange={(e)=>setEditCordageVal(v=>({...v, Couleur:e.target.value}))} />
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" defaultChecked={!!c.is_base} onChange={(e)=>setEditCordageVal(v=>({...v, is_base:e.target.checked}))} />
+                        basique
+                      </label>
+                      <div>
+                        <label className="text-xs text-gray-500">Gain tournoi (€)</label>
+                        <input type="number" step="0.01" min="0" className="input-field" defaultValue={(c.gain_cents ?? 0) / 100}
+                          onChange={(e)=> { const v = parseFloat(e.target.value || "0"); setEditCordageVal(vv => ({ ...vv, gain_cents: isNaN(v) ? null : Math.round(v*100) })); }} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Gain magasin (€)</label>
+                        <input type="number" step="0.01" min="0" className="input-field" defaultValue={(c.gain_magasin_cents ?? 0) / 100}
+                          onChange={(e)=> { const v = parseFloat(e.target.value || "0"); setEditCordageVal(vv => ({ ...vv, gain_magasin_cents: isNaN(v) ? null : Math.round(v*100) })); }} />
+                      </div>
+                    </div>
                   ) : (
-                    <>
-                      <button className="icon-btn" title="Éditer" onClick={()=>{setEditCordageIdx(i); setEditCordageVal({
-  cordage: c.cordage,
-  Couleur: c.Couleur || "none",
-  is_base: !!c.is_base,
-  gain_cents: (typeof c.gain_cents === "number" ? c.gain_cents : null),
-  gain_magasin_cents: (typeof c.gain_magasin_cents === "number" ? c.gain_magasin_cents : null),
-})}}><IconEdit /></button>
-                      <button className="icon-btn-red" title="Supprimer" onClick={()=>deleteCordage(c.cordage)}><IconTrash /></button>
-                    </>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{c.cordage}</div>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        {c.Couleur && c.Couleur !== "none" && (
+                          <span className="text-xs text-gray-500">🎨 {c.Couleur}</span>
+                        )}
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${c.is_base ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}`}>
+                          {c.is_base ? "basique" : "spécifique"}
+                        </span>
+                        {typeof c.gain_cents === "number" && (
+                          <span className="text-xs text-gray-400">T: {(c.gain_cents/100).toLocaleString("fr-FR")}€</span>
+                        )}
+                        {typeof c.gain_magasin_cents === "number" && (
+                          <span className="text-xs text-gray-400">M: {(c.gain_magasin_cents/100).toLocaleString("fr-FR")}€</span>
+                        )}
+                      </div>
+                    </div>
                   )}
+                  <div className="shrink-0 flex items-center gap-1.5">
+                    {editCordageIdx===i ? (
+                      <>
+                        <button className="icon-btn" title="Enregistrer" onClick={()=>saveEditCordage(c.cordage)}>💾</button>
+                        <button className="icon-btn" title="Annuler" onClick={() => { setEditCordageIdx(-1); setEditCordageVal({ cordage:"", Couleur:"none", is_base:false, gain_cents:null, gain_magasin_cents:null }); }}>✖</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="icon-btn" title="Éditer" onClick={()=>{ setEditCordageIdx(i); setEditCordageVal({ cordage: c.cordage, Couleur: c.Couleur || "none", is_base: !!c.is_base, gain_cents: (typeof c.gain_cents === "number" ? c.gain_cents : null), gain_magasin_cents: (typeof c.gain_magasin_cents === "number" ? c.gain_magasin_cents : null) }); }}><IconEdit /></button>
+                        <button className="icon-btn-red" title="Supprimer" onClick={()=>deleteCordage(c.cordage)}><IconTrash /></button>
+                      </>
+                    )}
+                  </div>
                 </div>
+              ))}
+              {cordages.length===0 && <div className="py-6 text-sm text-gray-400 text-center">Aucun cordage enregistré.</div>}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 2) Cordeurs ── */}
+      <section className="card p-4">
+        <SectionHeader icon="🧑‍🔧" title="Cordeurs" sub="Gérez les cordeurs et leurs paramètres de rémunération" />
+
+        <div className="mt-4 grid md:grid-cols-2 gap-6">
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="text-sm font-semibold text-gray-700 mb-3">Ajouter un cordeur</div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Nom</label>
+                <input className="input-field" placeholder="ex: Vincenzo" value={cordeurName} onChange={(e)=>setCordeurName(e.target.value)} />
               </div>
-            ))}
-            {cordages.length===0 && <div className="py-4 text-sm text-gray-500">Aucun cordage.</div>}
-          </div>
-        </div>
-      </div>
-    </section>
-
-    {/* 2) Ajouter un cordeur */}
-    <section className="card p-4">
-      <div className="section-bar">Cordeurs</div>
-
-      <div className="mt-3 grid md:grid-cols-2 gap-6">
-        {/* gauche : ajout */}
-        <div>
-          <div className="text-sm font-medium mb-2">Ajouter un cordeur</div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-600">Nom</label>
-              <input className="input input-bordered w-full text-black bg-white"
-                placeholder="ex: Vincenzo"
-                value={cordeurName}
-                onChange={(e)=>setCordeurName(e.target.value)}
-              />
-            </div>
-            <div className="sm:col-span-2">
-  <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-    <input
-      type="checkbox"
-      checked={cordeurRemunMagasin}
-      onChange={(e) => setCordeurRemunMagasin(e.target.checked)}
-    />
-    Rémunéré en magasin
-  </label>
-</div>
-            <div className="flex items-end">
-              <button className="btn-red px-4 py-2 rounded-xl text-white" style={{background:"#E10600"}} onClick={addCordeur}>
-                Ajouter
-              </button>
+              <div className="sm:col-span-2">
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" checked={cordeurRemunMagasin} onChange={(e) => setCordeurRemunMagasin(e.target.checked)} />
+                  Rémunéré en magasin
+                </label>
+              </div>
+              <div className="flex items-end">
+                <button className="btn-red" onClick={addCordeur}>+ Ajouter</button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* droite : liste */}
-        <div>
-          <div className="text-sm font-medium mb-2">Liste des cordeurs</div>
-          <div className="divide-y">
-            {cordeurs.map((c, i)=>(
-              <div key={c.cordeur} className="py-2 flex items-center justify-between gap-3">
-                {editCordeurIdx===i ? (
-                  <input className="input input-bordered text-black bg-white flex-1"
-                    defaultValue={c.cordeur}
-                    onChange={(e)=>setEditCordeurVal(e.target.value)}
-                  />
-                ) : (
-                  <div className="flex-1 flex items-center gap-3">
-  <span className="font-medium truncate">{c.cordeur}</span>
-
-  <label className="inline-flex items-center gap-1 text-xs text-gray-600">
-    <input
-      type="checkbox"
-      checked={!!c.remun_magasin}
-      onChange={() => toggleRemunMagasin(c.cordeur, c.remun_magasin)}
-    />
-    Magasin
-  </label>
-</div>
-                )}
-                <div className="shrink-0 flex items-center gap-2">
+          <div>
+            <div className="text-sm font-semibold text-gray-700 mb-3">
+              Liste <span className="text-gray-400 font-normal">({cordeurs.length})</span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {cordeurs.map((c, i) => (
+                <div key={c.cordeur} className="py-2.5 flex items-center justify-between gap-3">
                   {editCordeurIdx===i ? (
-                    <>
-                      <button className="icon-btn" title="Enregistrer" onClick={()=>saveEditCordeur(c.cordeur)}>💾</button>
-                      <button className="icon-btn" title="Annuler" onClick={()=>{setEditCordeurIdx(-1); setEditCordeurVal("");}}>✖</button>
-                    </>
+                    <input className="input-field flex-1" defaultValue={c.cordeur} onChange={(e)=>setEditCordeurVal(e.target.value)} />
                   ) : (
-                    <>
-                      <button className="icon-btn" title="Éditer" onClick={()=>{setEditCordeurIdx(i); setEditCordeurVal(c.cordeur);}}><IconEdit /></button>
-                      <button className="icon-btn-red" title="Supprimer" onClick={()=>deleteCordeur(c.cordeur)}><IconTrash /></button>
-                    </>
+                    <div className="flex-1 flex items-center gap-3">
+                      <span className="font-medium text-sm">{c.cordeur}</span>
+                      <label className="inline-flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                        <input type="checkbox" checked={!!c.remun_magasin} onChange={() => toggleRemunMagasin(c.cordeur, c.remun_magasin)} />
+                        <span className={c.remun_magasin ? "text-green-600 font-semibold" : ""}>Magasin</span>
+                      </label>
+                    </div>
                   )}
+                  <div className="shrink-0 flex items-center gap-1.5">
+                    {editCordeurIdx===i ? (
+                      <>
+                        <button className="icon-btn" title="Enregistrer" onClick={()=>saveEditCordeur(c.cordeur)}>💾</button>
+                        <button className="icon-btn" title="Annuler" onClick={()=>{setEditCordeurIdx(-1); setEditCordeurVal("");}}>✖</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="icon-btn" title="Éditer" onClick={()=>{setEditCordeurIdx(i); setEditCordeurVal(c.cordeur);}}><IconEdit /></button>
+                        <button className="icon-btn-red" title="Supprimer" onClick={()=>deleteCordeur(c.cordeur)}><IconTrash /></button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-            {cordeurs.length===0 && <div className="py-4 text-sm text-gray-500">Aucun cordeur.</div>}
-          </div>
-        </div>
-      </div>
-    </section>
-
-    {/* 3) Statuts : ajouter / modifier */}
-    <section className="card p-4">
-      <div className="section-bar">Statuts</div>
-      <div className="mt-3 grid md:grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs text-gray-600">Ajouter un statut</label>
-          <div className="flex gap-2">
-            <input className="input input-bordered w-full text-black bg-white"
-              placeholder='ex: "A RÉGLER"'
-              value={newStatut}
-              onChange={(e)=>setNewStatut(e.target.value)}
-            />
-            <button className="btn-red px-4 rounded-xl text-white" style={{background:"#E10600"}} onClick={addStatut}>Ajouter</button>
-          </div>
-          <div className="mt-2 text-xs text-gray-500">Table <code>statuts(statut_id)</code>.</div>
-        </div>
-
-        <div>
-          <label className="text-xs text-gray-600">Modifier un statut</label>
-          <div className="space-y-2 mt-1">
-            {statuts.map((s, i)=>(
-              <div key={s.statut_id} className="flex items-center gap-2">
-                {editStatutIdx===i ? (
-                  <>
-                    <input className="input input-bordered text-black bg-white"
-                      defaultValue={s.statut_id}
-                      onChange={(e)=>setEditStatutVal(e.target.value)}
-                    />
-                    <button className="icon-btn" onClick={()=>saveEditStatut(s.statut_id)}>💾</button>
-                    <button className="icon-btn" onClick={()=>{setEditStatutIdx(-1); setEditStatutVal("");}}>✖</button>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-sm">{s.statut_id}</span>
-                    <button className="icon-btn" title="Éditer" onClick={()=>{setEditStatutIdx(i); setEditStatutVal(s.statut_id);}}><IconEdit /></button>
-                    <button className="icon-btn-red" title="Supprimer" onClick={()=>deleteStatut(s.statut_id)}><IconTrash /></button>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 text-xs text-gray-500">Si la base a une contrainte FK stricte, le renommage peut être refusé (dans ce cas, ajoute un nouveau statut et migre les lignes plus tard).</div>
-        </div>
-      </div>
-    </section>
-
-    {/* 4) Règles tarifaires */}
-    <section className="card p-4">
-      <div className="section-bar">Règles tarifaires</div>
-
-      <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div>
-          <div className="text-xs text-gray-600 mb-1">Sans bobine • cordage <b>basique</b></div>
-          <input className="input input-bordered w-full text-black bg-white"
-            value={T_sansBobine_base}
-            onChange={(e)=>setT_sansBobine_base(e.target.value)}
-          />
-        </div>
-        <div>
-          <div className="text-xs text-gray-600 mb-1">Sans bobine • cordage <b>spécifique</b></div>
-          <input className="input input-bordered w-full text-black bg-white"
-            value={T_sansBobine_specific}
-            onChange={(e)=>setT_sansBobine_specific(e.target.value)}
-          />
-        </div>
-        <div>
-          <div className="text-xs text-gray-600 mb-1">Club avec bobine <b>base</b> • cordage <b>basique</b></div>
-          <input className="input input-bordered w-full text-black bg-white"
-            value={T_bobineBase_base}
-            onChange={(e)=>setT_bobineBase_base(e.target.value)}
-          />
-        </div>
-        <div>
-          <div className="text-xs text-gray-600 mb-1">Club avec bobine <b>specific</b> • cordage <b>spécifique</b></div>
-          <input className="input input-bordered w-full text-black bg-white"
-            value={T_bobineSpec_specific}
-            onChange={(e)=>setT_bobineSpec_specific(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div>
-  <div className="text-xs text-gray-600 mb-1">Supplément <b>Express</b> (ajouté au tarif)</div>
-  <input className="input input-bordered w-full text-black bg-white"
-    value={T_express}
-    onChange={(e)=>setT_express(e.target.value)}
-  />
-  <div className="mt-4 grid sm:grid-cols-2 gap-4">
-  <div>
-    <div className="text-xs text-gray-600 mb-1">Fourni : tarif <b>12€</b> → gain cordeur</div>
-    <input
-      className="input input-bordered w-full text-black bg-white"
-      value={F_fourni12}
-      onChange={(e)=>setF_fourni12(e.target.value)}
-    />
-  </div>
-
-  <div>
-    <div className="text-xs text-gray-600 mb-1">Fourni : tarif <b>14€</b> → gain cordeur</div>
-    <input
-      className="input input-bordered w-full text-black bg-white"
-      value={F_fourni14}
-      onChange={(e)=>setF_fourni14(e.target.value)}
-    />
-  </div>
-</div>
-</div>
-
-      <div className="mt-3 flex items-center gap-2">
-        <button className="btn-red px-4 py-2 rounded-xl text-white" style={{background:"#E10600"}} onClick={saveTarifs}>
-          Enregistrer les tarifs
-        </button>
-        <span className="text-xs text-gray-500">Les montants sont en € TTC ; ils sont écrits en centimes dans <code>tarif_matrix.price_cents</code>.</span>
-      </div>
-
-      {/* aperçu de la matrice actuelle */}
-      <div className="mt-4 text-sm">
-        <div className="font-medium mb-1">Aperçu actuel</div>
-        <ul className="list-disc ml-5 space-y-1">
-          {tarifsPreview.map((l,i)=>(
-            <li key={i}>{l.label} : <b>{euro(Number(l.val||0)/100)}</b></li>
-          ))}
-        </ul>
-      </div>
-    </section>
-
-      {/* 5) Moyens de règlement */}
-<section className="card p-4">
-  <div className="section-bar">Moyens de règlement</div>
-
-  <form onSubmit={addPaymentMode} className="mt-3 grid md:grid-cols-2 lg:grid-cols-4 gap-3">
-    <div>
-      <label className="text-xs text-gray-600">Code</label>
-      <input className="input input-bordered w-full text-black bg-white"
-        placeholder="ex: Paypal"
-        value={pmCode}
-        onChange={(e)=>setPmCode(e.target.value)}
-      />
-    </div>
-    <div>
-      <label className="text-xs text-gray-600">Libellé</label>
-      <input className="input input-bordered w-full text-black bg-white"
-        placeholder="ex: PayPal"
-        value={pmLabel}
-        onChange={(e)=>setPmLabel(e.target.value)}
-      />
-    </div>
-    <div>
-      <label className="text-xs text-gray-600">Emoji (optionnel)</label>
-      <input className="input input-bordered w-full text-black bg-white"
-        placeholder="ex: 🅿️"
-        value={pmEmoji}
-        onChange={(e)=>setPmEmoji(e.target.value)}
-      />
-    </div>
-    <div className="flex items-end">
-      <button className="btn-red px-4 py-2 rounded-xl text-white" style={{background:"#E10600"}}>
-        Ajouter
-      </button>
-    </div>
-  </form>
-
-  <div className="mt-4">
-    <div className="text-sm font-medium mb-2">Liste</div>
-
-    {/* Desktop ≥ md : on garde la liste éditable actuelle */}
-    <ul className="divide-y hidden md:block">
-      {paymentModes.map((pm, i)=>(
-        <li key={pm.code} className="py-2 flex items-center gap-3">
-        {/* emoji affiché */}
-        <span className="w-6 text-center">{pm.emoji || "—"}</span>
-      
-        {/* Label éditable + code en petit en dessous (plus de doublon de colonne) */}
-        <div className="min-w-0 flex-1">
-          <input
-            className="input input-bordered text-black bg-white w-full"
-            value={pm.label}
-            onChange={(e)=>updatePaymentMode(pm, { label: e.target.value })}
-          />
-        </div>
-      
-        {/* Emoji éditable */}
-        <input
-          className="input input-bordered text-black bg-white w-20"
-          value={pm.emoji || ""}
-          onChange={(e)=>updatePaymentMode(pm, { emoji: e.target.value || null })}
-          title="Emoji"
-        />
-      
-        {/* État (activé / caché) */}
-        <button
-          type="button"
-          onClick={()=>togglePaymentMode(pm)}
-          className={`px-2 py-1 rounded border ${pm.enabled ? "bg-green-50 border-green-300" : "bg-gray-50"}`}
-        >
-          {pm.enabled ? "Activé" : "Caché"}
-        </button>
-      
-        {/* Réordonner + supprimer */}
-        <div className="ml-auto flex items-center gap-1">
-          <button className="px-2 py-1 rounded border" disabled={i===0}
-                  onClick={()=>movePaymentMode(pm,-1)}>↑</button>
-          <button className="px-2 py-1 rounded border" disabled={i===paymentModes.length-1}
-                  onClick={()=>movePaymentMode(pm,1)}>↓</button>
-          <button className="px-2 py-1 rounded border text-red-600"
-                  onClick={()=>deletePaymentMode(pm.code)}>Suppr</button>
-        </div>
-      </li>      
-      ))}
-      {paymentModes.length===0 && <li className="py-3 text-sm text-gray-500">Aucun moyen.</li>}
-    </ul>
-
-    {/* Mobile < md : carte compacte sans lignes en double */}
-    <div className="space-y-3 md:hidden">
-      {paymentModes.map((pm, i)=>(
-        <div key={pm.code} className="rounded-2xl border p-3 bg-white">
-          <div className="flex items-center gap-3">
-            <span className="text-xl w-7 text-center">{pm.emoji || "—"}</span>
-            <div className="font-semibold truncate">{pm.label || pm.code}</div>
-
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                onClick={()=>togglePaymentMode(pm)}
-                className={`px-2 py-1 rounded border text-xs ${pm.enabled ? "bg-green-50 border-green-300" : "bg-gray-50"}`}
-              >
-                {pm.enabled ? "Activé" : "Caché"}
-              </button>
-              <button className="px-2 py-1 rounded border" disabled={i===0} onClick={()=>movePaymentMode(pm,-1)}>↑</button>
-              <button className="px-2 py-1 rounded border" disabled={i===paymentModes.length-1} onClick={()=>movePaymentMode(pm,1)}>↓</button>
-              <button className="px-2 py-1 rounded border text-red-600" onClick={()=>deletePaymentMode(pm.code)}>Suppr</button>
+              ))}
+              {cordeurs.length===0 && <div className="py-6 text-sm text-gray-400 text-center">Aucun cordeur enregistré.</div>}
             </div>
           </div>
         </div>
-      ))}
-      {paymentModes.length===0 && <div className="py-3 text-sm text-gray-500">Aucun moyen.</div>}
-    </div>
-  </div>
-</section>
-</div>
-<Toast
-  open={toastOpen}
-  onClose={() => setToastOpen(false)}
-  title={toastTitle}
-  message={toastMessage}
-  variant={toastVariant}
-/>
+      </section>
 
-<ConfirmModal
-  open={confirmOpen}
-  title={confirmConfig.title}
-  message={confirmConfig.message}
-  icon={confirmConfig.icon}
-  confirmLabel={confirmConfig.confirmLabel}
-  cancelLabel={confirmConfig.cancelLabel}
-  danger={confirmConfig.danger}
-  onCancel={() => {
-    setConfirmOpen(false);
-    setConfirmAction(null);
-  }}
-  onConfirm={async () => {
-    setConfirmOpen(false);
-    const fn = confirmAction;
-    setConfirmAction(null);
-    await fn?.();
-  }}
-/>
+      {/* ── 3) Statuts ── */}
+      <section className="card p-4">
+        <SectionHeader icon="🏷️" title="Statuts" sub="Gérez les statuts de suivi des raquettes" />
+
+        <div className="mt-4 grid md:grid-cols-2 gap-6">
+          <div className="bg-gray-50 rounded-xl p-4">
+            <label className="block text-xs text-gray-500 mb-1">Ajouter un statut</label>
+            <div className="flex gap-2">
+              <input className="input-field" placeholder='ex: "A RÉGLER"' value={newStatut} onChange={(e)=>setNewStatut(e.target.value)} />
+              <button className="btn-red shrink-0" onClick={addStatut}>+ Ajouter</button>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-sm font-semibold text-gray-700 mb-3">
+              Liste <span className="text-gray-400 font-normal">({statuts.length})</span>
+            </div>
+            <div className="space-y-1.5">
+              {statuts.map((s, i) => (
+                <div key={s.statut_id} className="flex items-center gap-2">
+                  {editStatutIdx===i ? (
+                    <>
+                      <input className="input-field flex-1" defaultValue={s.statut_id} onChange={(e)=>setEditStatutVal(e.target.value)} />
+                      <button className="icon-btn" onClick={()=>saveEditStatut(s.statut_id)}>💾</button>
+                      <button className="icon-btn" onClick={()=>{setEditStatutIdx(-1); setEditStatutVal("");}}>✖</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 text-sm font-medium px-3 py-1.5 bg-gray-100 rounded-lg truncate">{s.statut_id}</span>
+                      <button className="icon-btn" title="Éditer" onClick={()=>{setEditStatutIdx(i); setEditStatutVal(s.statut_id);}}><IconEdit /></button>
+                      <button className="icon-btn-red" title="Supprimer" onClick={()=>deleteStatut(s.statut_id)}><IconTrash /></button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 text-xs text-gray-400">Si la base a une contrainte FK stricte, le renommage peut être refusé.</div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 4) Règles tarifaires ── */}
+      <section className="card p-4">
+        <SectionHeader icon="💰" title="Règles tarifaires" sub="Définissez les prix selon le type de cordage et les bobines du club" />
+
+        <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Sans bobine • cordage <b>basique</b></label>
+            <input className="input-field" value={T_sansBobine_base} onChange={(e)=>setT_sansBobine_base(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Sans bobine • cordage <b>spécifique</b></label>
+            <input className="input-field" value={T_sansBobine_specific} onChange={(e)=>setT_sansBobine_specific(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Bobine base • cordage <b>basique</b></label>
+            <input className="input-field" value={T_bobineBase_base} onChange={(e)=>setT_bobineBase_base(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Bobine specific • cordage <b>spécifique</b></label>
+            <input className="input-field" value={T_bobineSpec_specific} onChange={(e)=>setT_bobineSpec_specific(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="mt-4 grid sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Supplément <b>Express</b></label>
+            <input className="input-field" value={T_express} onChange={(e)=>setT_express(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Fourni • tarif <b>12€</b> → gain cordeur</label>
+            <input className="input-field" value={F_fourni12} onChange={(e)=>setF_fourni12(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Fourni • tarif <b>14€</b> → gain cordeur</label>
+            <input className="input-field" value={F_fourni14} onChange={(e)=>setF_fourni14(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center gap-3 flex-wrap">
+          <button className="btn-red" onClick={saveTarifs}>💾 Enregistrer les tarifs</button>
+          <span className="text-xs text-gray-400">Montants en € TTC • stockés en centimes dans <code>tarif_matrix</code></span>
+        </div>
+
+        <div className="mt-4 bg-gray-50 rounded-xl p-4">
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Aperçu actuel</div>
+          <div className="grid sm:grid-cols-2 gap-x-6 gap-y-0">
+            {tarifsPreview.map((l, i) => (
+              <div key={i} className="flex items-center justify-between text-sm py-2 border-b border-gray-100 last:border-0">
+                <span className="text-gray-600 truncate mr-2">{l.label}</span>
+                <span className="font-bold text-gray-900 shrink-0">{euro(Number(l.val||0)/100)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 5) Moyens de règlement ── */}
+      <section className="card p-4">
+        <SectionHeader icon="💳" title="Moyens de règlement" sub="Gérez les modes de paiement disponibles à la saisie" />
+
+        <form onSubmit={addPaymentMode} className="mt-4 bg-gray-50 rounded-xl p-4">
+          <div className="text-sm font-semibold text-gray-700 mb-3">Ajouter un moyen</div>
+          <div className="grid sm:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Code</label>
+              <input className="input-field" placeholder="ex: Paypal" value={pmCode} onChange={(e)=>setPmCode(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Libellé</label>
+              <input className="input-field" placeholder="ex: PayPal" value={pmLabel} onChange={(e)=>setPmLabel(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Emoji (optionnel)</label>
+              <input className="input-field" placeholder="ex: 🅿️" value={pmEmoji} onChange={(e)=>setPmEmoji(e.target.value)} />
+            </div>
+            <div className="flex items-end">
+              <button type="submit" className="btn-red">+ Ajouter</button>
+            </div>
+          </div>
+        </form>
+
+        <div className="mt-4">
+          <div className="text-sm font-semibold text-gray-700 mb-3">
+            Liste <span className="text-gray-400 font-normal">({paymentModes.length})</span>
+          </div>
+
+          {/* Desktop */}
+          <div className="divide-y divide-gray-100 hidden md:block">
+            {paymentModes.map((pm, i) => (
+              <div key={pm.code} className="py-2.5 flex items-center gap-3">
+                <span className="w-7 text-xl text-center shrink-0">{pm.emoji || "—"}</span>
+                <div className="min-w-0 flex-1">
+                  <input className="input-field" value={pm.label} onChange={(e)=>updatePaymentMode(pm, { label: e.target.value })} />
+                </div>
+                <input className="input-field w-16 shrink-0" value={pm.emoji || ""} onChange={(e)=>updatePaymentMode(pm, { emoji: e.target.value || null })} title="Emoji" />
+                <button type="button" onClick={()=>togglePaymentMode(pm)}
+                  className={`shrink-0 px-3 py-1.5 rounded-lg border text-xs font-medium transition ${pm.enabled ? "bg-green-50 border-green-200 text-green-700" : "bg-gray-50 border-gray-200 text-gray-500"}`}>
+                  {pm.enabled ? "✓ Activé" : "Caché"}
+                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button className="icon-btn" disabled={i===0} onClick={()=>movePaymentMode(pm,-1)} title="Monter">↑</button>
+                  <button className="icon-btn" disabled={i===paymentModes.length-1} onClick={()=>movePaymentMode(pm,1)} title="Descendre">↓</button>
+                  <button className="icon-btn-red" onClick={()=>deletePaymentMode(pm.code)} title="Supprimer"><IconTrash /></button>
+                </div>
+              </div>
+            ))}
+            {paymentModes.length===0 && <div className="py-6 text-sm text-gray-400 text-center">Aucun moyen de règlement.</div>}
+          </div>
+
+          {/* Mobile */}
+          <div className="space-y-2 md:hidden">
+            {paymentModes.map((pm, i) => (
+              <div key={pm.code} className="rounded-xl border border-gray-100 p-3 bg-white">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl w-7 text-center shrink-0">{pm.emoji || "—"}</span>
+                  <div className="font-medium text-sm truncate flex-1">{pm.label || pm.code}</div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button type="button" onClick={()=>togglePaymentMode(pm)}
+                      className={`px-2 py-1 rounded-lg border text-xs font-medium ${pm.enabled ? "bg-green-50 border-green-200 text-green-700" : "bg-gray-50 border-gray-200 text-gray-500"}`}>
+                      {pm.enabled ? "✓" : "—"}
+                    </button>
+                    <button className="icon-btn" disabled={i===0} onClick={()=>movePaymentMode(pm,-1)}>↑</button>
+                    <button className="icon-btn" disabled={i===paymentModes.length-1} onClick={()=>movePaymentMode(pm,1)}>↓</button>
+                    <button className="icon-btn-red" onClick={()=>deletePaymentMode(pm.code)}><IconTrash /></button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {paymentModes.length===0 && <div className="py-3 text-sm text-gray-400 text-center">Aucun moyen.</div>}
+          </div>
+        </div>
+      </section>
+    </div>
+    <Toast open={toastOpen} onClose={() => setToastOpen(false)} title={toastTitle} message={toastMessage} variant={toastVariant} />
+    <ConfirmModal
+      open={confirmOpen}
+      title={confirmConfig.title}
+      message={confirmConfig.message}
+      icon={confirmConfig.icon}
+      confirmLabel={confirmConfig.confirmLabel}
+      cancelLabel={confirmConfig.cancelLabel}
+      danger={confirmConfig.danger}
+      onCancel={() => { setConfirmOpen(false); setConfirmAction(null); }}
+      onConfirm={async () => { setConfirmOpen(false); const fn = confirmAction; setConfirmAction(null); await fn?.(); }}
+    />
+  </>
+  )}
   </PasscodeGate>
+  </div>
 );
 }

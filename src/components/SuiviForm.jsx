@@ -479,7 +479,7 @@ onDone?.({ type: "created", count: data.length });
 
       <form onSubmit={onSubmit} className="space-y-5">
         {/* Quantité + Date + Statut */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4">
   {!isEdit && (
     <Field label="Nombre de raquettes">
       <input type="number" min={1} value={qte} onChange={e=>setQte(e.target.value)} className="w-full border rounded-lg p-2" />
@@ -496,7 +496,7 @@ onDone?.({ type: "created", count: data.length });
 </div>
 
         {/* Client + Club + Lieu */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
   <Field label="Client">
     <div className="flex items-center gap-2">
       <div className="flex-1">
@@ -558,7 +558,7 @@ onDone?.({ type: "created", count: data.length });
   </Field>
 
         {/* Cordage + Couleur + Tension */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
   <Field label="Cordage">
     <SearchSelect
       items={cordages}
@@ -585,7 +585,7 @@ onDone?.({ type: "created", count: data.length });
 </div>
 
         {/* Raquette + Cordeur + Oui/Non */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div className="grid grid-cols-1 gap-4">
   <Field label="Modèle de raquette">
     <input type="text" value={raquette} onChange={e=>setRaquette(e.target.value.toUpperCase())} className="w-full border rounded-lg p-2" placeholder="ex: Astrox 88 S Pro" />
   </Field>
@@ -612,7 +612,7 @@ onDone?.({ type: "created", count: data.length });
 </div>
 
         {/* Note */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div className="grid grid-cols-1 gap-4">
   <Field label="Note (optionnel)">
     <textarea
       className="w-full border rounded-lg p-2"

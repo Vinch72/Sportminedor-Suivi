@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./utils/supabaseClient"; 
 import SuiviSeasonView from "./components/SuiviSeasonView";
 import BackButton from "./components/BackButton"; // ou "../components/BackButton" 
-import logo from "./assets/sportminedor-logo.png"
+import PageHeader from "./components/ui/PageHeader"
 import { useNavigate } from "react-router-dom";
 import SuiviResponsive from "./components/SuiviResponsive";
 
@@ -348,19 +348,14 @@ useEffect(() => {
     load(); 
   }, [seasonStart, seasonEnd, monthStart, monthEnd, statsReloadKey]); 
   return ( 
-    <div className="min-h-screen bg-brand-gray py-8 px-4"> 
+    <div className="min-h-screen bg-brand-gray py-5 px-4">
   <div className="w-[92vw] max-w-[1400px] mx-auto"> 
     
-    {/* Titre + cartes sur UNE ligne */}
-<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-  {/* Titre */}
- <div className="flex items-center gap-4">
-    <img src={logo} alt="" className="h-8 w-8 rounded-full select-none" />
-    <h1 className="text-2xl font-bold flex items-center gap-2">Suivi</h1>
-  </div>
+    <PageHeader title="Suivi" description="Suivez les raquettes cordées, les paiements et les statuts en temps réel." />
 
-  {/* Cartes (collées à droite) */}
-  <div className="sm:ml-auto grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    {/* Cartes */}
+<div className="mb-4">
+  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
     <Card
   title="À faire"
   value={fmt(stats.aFaire, loading, err)}
@@ -392,7 +387,7 @@ useEffect(() => {
 <TournamentAlerts />
 
  {/* Nouvelle vue Saison → Mois */} 
-          <div className="mt-8" data-suivi-list>
+          <div className="mt-4" data-suivi-list>
   <SuiviSeasonView
   presetFilters={presetFilters}
   onMonthStats={handleMonthStats}
@@ -417,23 +412,20 @@ function Card({ title, value, icon, onClick, active, showAccent }) {
       onClick={onClick}
       onKeyDown={(e) => {
         if (!clickable) return;
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick();
-        }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
       }}
       className={[
-        "bg-white rounded-xl shadow-card p-4 text-center border transition",
+        "bg-white rounded-xl shadow-card px-3 py-2.5 border transition flex items-center gap-2.5",
         clickable ? "cursor-pointer hover:shadow-md" : "",
-        active ? "border-brand-red ring-2 ring-brand-red/20" : "border-gray-100",
+        active ? "border-brand-red" : "border-gray-100",
       ].join(" ")}
     >
-      {icon && <div className="text-2xl mb-1">{icon}</div>}
-      <div className="text-sm text-gray-500">{title}</div>
-      <div className="mt-1 text-3xl font-extrabold tracking-tight">{value}</div>
-      {showAccent && (
-  <div className="mt-3 h-1 w-10 mx-auto rounded bg-brand-red" />
-)}
+      {icon && <div className="text-xl shrink-0">{icon}</div>}
+      <div className="min-w-0 flex-1">
+        <div className="text-xs text-gray-500 truncate">{title}</div>
+        <div className="text-lg font-extrabold tracking-tight leading-tight">{value}</div>
+      </div>
+      {showAccent && <div className="w-1 h-6 rounded shrink-0" style={{ background: "#E10600" }} />}
     </div>
   );
 }
