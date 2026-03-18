@@ -100,28 +100,21 @@ export default function NewClientInline({ onCreated }) {
   );
 
   return (
-    <div className="card p-3">
-      {/* ✅ Header cliquable */}
+    <div className="border border-gray-200 rounded-xl bg-white overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between text-left"
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition"
         aria-expanded={open}
       >
-        <div className="font-semibold">Ajouter un nouveau client</div>
-        <div className="text-gray-500">{open ? "▲" : "▼"}</div>
+        <span className="text-[#7c3aed] font-bold text-base leading-none">+</span>
+        <span className="font-medium text-sm flex-1">Nouveau client</span>
+        <span className="text-gray-400 text-xs">{open ? "▲" : "▼"}</span>
       </button>
 
-      {/* ✅ petit hint quand fermé */}
-      {!open && (
-        <div className="text-sm text-gray-500 mt-1">
-          Clique pour ouvrir le formulaire
-        </div>
-      )}
-
-      {/* ✅ Contenu repliable */}
       {open && (
-        <form onSubmit={submit} className="grid md:grid-cols-3 gap-2 mt-3">
+        <div className="border-t border-gray-100 px-4 py-4">
+        <form onSubmit={submit} className="grid md:grid-cols-3 gap-2">
           <div>
             <label className="text-sm">Nom *</label>
             <input
@@ -198,6 +191,7 @@ export default function NewClientInline({ onCreated }) {
             </button>
           </div>
         </form>
+        </div>
       )}
     </div>
   );

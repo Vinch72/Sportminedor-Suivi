@@ -36,6 +36,9 @@
 
   .card { @apply rounded-2xl border border-gray-200 p-3 bg-white shadow-sm; }
 
+  /* Overlay sombre pour toutes les modales */
+  .modal-overlay { background-color: rgba(0, 0, 0, 0.8); }
+
   /* Forcer du texte blanc dans la nav (sinon noir sur noir) */
 .nav-link .tab-text { color:#fff !important; }
 .nav-link { color:#fff !important; }

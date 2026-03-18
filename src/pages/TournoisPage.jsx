@@ -1,16 +1,51 @@
 // src/pages/TournoisPage.jsx
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import TournoiForm from "../components/tournois/TournoiForm";
 import TournoiList from "../components/tournois/TournoiList";
 import TournoiDetailModal from "../components/tournois/TournoiDetailModal";
 import TournoiVentesModal from "../components/tournois/TournoiVentesModal";
 import logo from "../assets/sportminedor-logo.png";
 
+function getParam(key) {
+  return new URLSearchParams(window.location.search).get(key) || null;
+}
+function setParams(open, ventes) {
+  const url = new URL(window.location.href);
+  if (open) url.searchParams.set("open", open);
+  else url.searchParams.delete("open");
+  if (ventes) url.searchParams.set("ventes", ventes);
+  else url.searchParams.delete("ventes");
+  window.history.replaceState(null, "", url.toString());
+}
+
 export default function TournoisPage() {
-  const [editing, setEditing] = useState(null);   // {tournoi, start_date, end_date, infos}
-  const [opened, setOpened] = useState(null);     // idem
-  const [query, setQuery] = useState("");         // 🔎 recherche compacte
-  const [openedVentes, setOpenedVentes] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [opened, setOpened] = useState(() => {
+    const p = getParam("open");
+    return p ? { tournoi: p } : null;
+  });
+  const [query, setQuery] = useState("");
+  const [openedVentes, setOpenedVentes] = useState(() => {
+    const p = getParam("ventes");
+    return p ? { tournoi: p } : null;
+  });
+  const [formOpen, setFormOpen] = useState(false);
+
+  // Sync URL → state (popstate)
+  useEffect(() => {
+    const onPop = () => {
+      setOpened(getParam("open") ? { tournoi: getParam("open") } : null);
+      setOpenedVentes(getParam("ventes") ? { tournoi: getParam("ventes") } : null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Sync state → URL
+  useEffect(() => {
+    setParams(opened?.tournoi ?? null, openedVentes?.tournoi ?? null);
+  }, [opened, openedVentes]);
 
   useEffect(() => {
     const onOpen = (e) => {
@@ -24,12 +59,20 @@ export default function TournoisPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <img src={logo} alt="" className="h-7 w-7 rounded-full select-none" />
-        <h1 className="text-2xl font-bold">Tournois</h1>
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <img src={logo} alt="" className="h-7 w-7 rounded-full select-none" />
+          <h1 className="text-2xl font-bold">Tournois</h1>
+        </div>
+        <button
+          type="button"
+          onClick={() => { setEditing(null); setFormOpen(true); }}
+          className="flex items-center gap-2 px-4 h-10 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition"
+          style={{ background: "#E10600" }}
+        >
+          + Créer un tournoi
+        </button>
       </div>
-
-      <TournoiForm initial={editing} onDone={() => setEditing(null)} />
 
       {/* 🔎 Barre de recherche compacte (comme Clients/Clubs) */}
       <div className="mt-6">
@@ -57,15 +100,64 @@ export default function TournoisPage() {
   query={query}
   onEdit={(row) => {
     setEditing(row);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setFormOpen(true);
   }}
   onOpen={(row) => { setOpened(row); }}
   onOpenVentes={(row) => { setOpenedVentes(row); }}
 />
       </div>
 
-      {opened && <TournoiDetailModal tournoi={opened} onClose={() => setOpened(null)} />}
+      {formOpen && (
+        <TournoiFormModal onClose={() => { setEditing(null); setFormOpen(false); }}>
+          <TournoiForm
+            initial={editing}
+            onDone={() => { setEditing(null); setFormOpen(false); }}
+          />
+        </TournoiFormModal>
+      )}
+
+      {opened && <TournoiDetailModal tournoi={opened} onClose={() => { setOpened(null); }} />}
       {openedVentes && <TournoiVentesModal tournoi={openedVentes} onClose={() => setOpenedVentes(null)} />}
     </div>
+  );
+}
+
+function TournoiFormModal({ children, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose?.();
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[10000]">
+      <div className="absolute inset-0 modal-overlay" onClick={onClose} />
+      <div className="absolute inset-0 flex items-center justify-center px-4 py-8">
+        <div
+          className="relative bg-white shadow-2xl rounded-2xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="sticky top-0 bg-white px-4 py-3 border-b flex items-center justify-between">
+            <h3 className="font-semibold text-base">Tournoi</h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-9 w-9 rounded-full border flex items-center justify-center hover:bg-gray-50"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }

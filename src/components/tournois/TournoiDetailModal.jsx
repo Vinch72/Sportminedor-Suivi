@@ -35,6 +35,7 @@ export default function TournoiDetailModal({ tournoi, onClose }) {
   const [cordeurs, setCordeurs] = useState([]);
   const [prefillClientId, setPrefillClientId] = useState(null);
   const [showInfos, setShowInfos] = useState(true);
+  const [showRacketForm, setShowRacketForm] = useState(false);
   const [showVentesModal, setShowVentesModal] = useState(false);
 
   const { rows: rackets, priceForRow, clubFlagsForRow, load } = useTournoiRackets(tournoiName);
@@ -72,6 +73,11 @@ export default function TournoiDetailModal({ tournoi, onClose }) {
     window.addEventListener("tournois:updated", onUpdated);
     return () => { mounted = false; window.removeEventListener("tournois:updated", onUpdated); };
   }, [initialName, tournoi]);
+
+  // Ouvre automatiquement le formulaire raquette quand un client vient d'être créé
+  useEffect(() => {
+    if (prefillClientId) setShowRacketForm(true);
+  }, [prefillClientId]);
 
   if (!tournoi) return null;
 
@@ -144,7 +150,7 @@ export default function TournoiDetailModal({ tournoi, onClose }) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose}>
+      <div className="fixed inset-0 modal-overlay z-50" onClick={onClose}>
         <div className="absolute inset-0 bg-white overflow-y-auto" onClick={(e) => e.stopPropagation()}>
 
           {/* Header sticky */}
@@ -178,13 +184,30 @@ export default function TournoiDetailModal({ tournoi, onClose }) {
               <button className="text-[#E10600] underline text-sm" onClick={() => setShowInfos(true)}>Afficher les infos</button>
             )}
 
+            {/* Accordéons */}
+            <div className="space-y-2">
             <NewClientInline onCreated={(id) => setPrefillClientId(id)} />
 
-            <div>
-              <div className="text-lg font-semibold mb-2">Ajouter une raquette</div>
-              <TournoiRacketForm tournoiName={tournoiName} allowedCordeurs={cordeurs} prefillClientId={prefillClientId} />
+            {/* Accordéon : Ajouter une raquette */}
+            <div className="border border-gray-200 rounded-xl bg-white overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowRacketForm((o) => !o)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition"
+              >
+                <span className="text-base leading-none">🏸</span>
+                <span className="font-medium text-sm flex-1">Ajouter une raquette</span>
+                <span className="text-gray-400 text-xs">{showRacketForm ? "▲" : "▼"}</span>
+              </button>
+              {showRacketForm && (
+                <div className="border-t border-gray-100 px-4 py-4">
+                  <TournoiRacketForm tournoiName={tournoiName} allowedCordeurs={cordeurs} prefillClientId={prefillClientId} />
+                </div>
+              )}
             </div>
+            </div>{/* fin accordéons */}
 
+            {/* Suivi du tournoi */}
             <TournoiRacketsTable
               tournoiName={tournoiName}
               locked={!!fresh?.locked}

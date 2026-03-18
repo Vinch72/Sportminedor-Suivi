@@ -809,7 +809,7 @@ function PaymentModeModal({ onClose, onPick }) {
 
   return (
     <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-[2000] flex items-center justify-center modal-overlay"
       onClick={onClose}
     >
       <div

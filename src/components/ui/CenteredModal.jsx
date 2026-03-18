@@ -18,7 +18,7 @@ export default function CenteredModal({
 
   const subtleText = dark ? "text-zinc-300" : "text-gray-600";
   const closeBtn   = dark ? "text-zinc-400 hover:text-white" : "text-gray-500 hover:text-gray-800";
-  const backdrop   = dark ? "bg-black/60" : "bg-black/50";
+  const backdrop   = dark ? "modal-overlay" : "modal-overlay";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">

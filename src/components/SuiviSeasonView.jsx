@@ -355,7 +355,7 @@ useEffect(() => {
   // live refresh
   useEffect(() => {
     const ch = supabase.channel("suivi:seasoned").on("postgres_changes", { event: "*", schema: "public", table: "suivi" }, () => load()).subscribe();
-    const bump = () => load();
+    const bump = (e) => { if (e?.detail?.skipReload) return; load(); };
     window.addEventListener("suivi:created", bump);
     window.addEventListener("suivi:updated", bump);
     window.addEventListener("suivi:deleted", bump);
@@ -554,7 +554,7 @@ useEffect(() => {
     if (error) { console.error(error); alert("Mise à jour du règlement refusée : " + (error.message || "")); return; }
     const updated = { ...row, ...patch };
     setRows(prev => prev.map(r => r.id === row.id ? updated : r));
-    window.dispatchEvent(new CustomEvent("suivi:updated", { detail: { id: row.id } }));
+    window.dispatchEvent(new CustomEvent("suivi:updated", { detail: { id: row.id, skipReload: true } }));
     return updated; // <-- on renvoie la ligne à jour
   }
 
@@ -596,7 +596,7 @@ useEffect(() => {
     const { error } = await supabase.from("suivi").update({ statut_id: statut }).eq("id", row.id);
     if (error) { alert("Maj statut refusée: " + (error.message || "")); return false; }
     setRows(prev => prev.map(r => r.id === row.id ? { ...r, statut_id: statut } : r));
-    window.dispatchEvent(new CustomEvent("suivi:updated", { detail: { id: row.id } }));
+    window.dispatchEvent(new CustomEvent("suivi:updated", { detail: { id: row.id, skipReload: true } }));
     return true;
   }
 
@@ -616,7 +616,7 @@ async function toggleBill(row) {
     const { error } = await supabase.from("suivi").update(patch).eq("id", row.id);
     if (error) { alert("Maj règlement refusée: " + (error.message || "")); return; }
     setRows(prev => prev.map(r => r.id === row.id ? { ...r, ...patch } : r));
-    window.dispatchEvent(new CustomEvent("suivi:updated", { detail: { id: row.id } }));
+    window.dispatchEvent(new CustomEvent("suivi:updated", { detail: { id: row.id, skipReload: true } }));
     await applyStatut(row, { ...f, bill: false });
   } else {
     // ouvrir la modale de choix du mode de paiement
@@ -1213,7 +1213,7 @@ for (const r of done) {
 
       {/* Modale édition */}
       {editingRow && (
-        <div className="fixed inset-0 bg-black/30 flex justify-end z-50" onClick={() => setEditingRow(null)}>
+        <div className="fixed inset-0 modal-overlay flex justify-end z-50" onClick={() => setEditingRow(null)}>
 <div
   className="w-full max-w-xl bg-white max-h-[90vh] p-4 overflow-y-auto rounded-l-2xl"
   onClick={(e) => e.stopPropagation()}
@@ -1233,7 +1233,7 @@ for (const r of done) {
 {/* Modale note */}
 {noteDialog && (
   <div
-    className="fixed inset-0 z-[2100] flex items-center justify-center bg-black/40"
+    className="fixed inset-0 z-[2100] flex items-center justify-center modal-overlay"
     onClick={() => setNoteDialog(null)}
   >
     <div
@@ -1272,7 +1272,7 @@ for (const r of done) {
 )}
 {deleteDialog && (
   <div
-    className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40"
+    className="fixed inset-0 z-[2000] flex items-center justify-center modal-overlay"
     onClick={() => setDeleteDialog(null)}
   >
     <div
@@ -1320,7 +1320,7 @@ for (const r of done) {
 
       {/* Modale choix du mode de règlement */}
 {payDialog && (
-  <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40" onClick={() => setPayDialog(null)}>
+  <div className="fixed inset-0 z-[2000] flex items-center justify-center modal-overlay" onClick={() => setPayDialog(null)}>
     <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-start gap-3">
         <div className="text-2xl leading-none">💶</div>
@@ -1355,7 +1355,7 @@ for (const r of done) {
 
 {/* Modale envoi message */}
 {msgDialog && (
-  <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40" onClick={() => setMsgDialog(null)}>
+  <div className="fixed inset-0 z-[2000] flex items-center justify-center modal-overlay" onClick={() => setMsgDialog(null)}>
     <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-start gap-3">
         <div className="text-2xl leading-none">📩</div>
@@ -1434,7 +1434,7 @@ for (const r of done) {
 )}
 {phoneDialog && (
   <div
-    className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40"
+    className="fixed inset-0 z-[2000] flex items-center justify-center modal-overlay"
     onClick={() => setPhoneDialog(null)}
   >
     <div
@@ -1496,7 +1496,7 @@ for (const r of done) {
 )}
 {/* Modale détail cordeur */}
 {cordeurDetailDialog && (
-  <div className="fixed inset-0 z-[2100] flex items-center justify-center bg-black/40 p-4"
+  <div className="fixed inset-0 z-[2100] flex items-center justify-center modal-overlay p-4"
     onClick={() => setCordeurDetailDialog(null)}>
     <div className="w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90dvh]"
       onClick={(e) => e.stopPropagation()}>

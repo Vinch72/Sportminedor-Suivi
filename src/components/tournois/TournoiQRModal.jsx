@@ -1,9 +1,27 @@
 // src/components/tournois/TournoiQRModal.jsx
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
+import logoUrl from "../../assets/sportminedor-logo.png";
 
 const BASE_URL = "https://sportminedor-suivi.vercel.app";
 const RED = "#E10600";
+
+function formatDate(val) {
+  if (!val) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+    const [y, m, d] = val.split("-");
+    return `${d}/${m}/${y}`;
+  }
+  return new Date(val).toLocaleDateString("fr-FR");
+}
+
+function buildDateLabel(t) {
+  const sd = formatDate(t?.start_date);
+  const ed = formatDate(t?.end_date);
+  const d  = formatDate(t?.date);
+  if (sd && ed && sd !== ed) return `${sd} → ${ed}`;
+  return sd || ed || d || null;
+}
 
 export default function TournoiQRModal({ tournoi, onClose }) {
   const [dataUrl, setDataUrl] = useState("");
@@ -63,11 +81,130 @@ export default function TournoiQRModal({ tournoi, onClose }) {
     a.click();
   }
 
+  function printQR() {
+    if (!dataUrl || !tournoi?.tournoi) return;
+    const nom   = tournoi.tournoi;
+    const dates = buildDateLabel(tournoi);
+    const absLogo = new URL(logoUrl, window.location.origin).href;
+
+    const win = window.open("", "_blank");
+    win.document.write(`<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>QR Code — ${nom}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8fafc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 480px;
+      background: white;
+      border: 2px solid #E10600;
+      border-radius: 20px;
+      padding: 40px 36px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+    }
+    .logo { width: 150px; margin-bottom: 22px; }
+    .divider {
+      width: 48px; height: 4px;
+      background: #E10600;
+      border-radius: 2px;
+      margin: 0 auto 20px;
+    }
+    .tournament-name {
+      font-size: 22px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+    .tournament-date {
+      font-size: 14px;
+      color: #64748b;
+      font-weight: 500;
+      margin-bottom: 28px;
+    }
+    .qr-wrap {
+      display: inline-flex;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1.5px solid #e2e8f0;
+      background: white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      margin-bottom: 28px;
+    }
+    .qr-wrap img { width: 220px; height: 220px; display: block; border-radius: 8px; }
+    .instruction {
+      background: rgba(225, 6, 0, 0.05);
+      border: 1.5px solid rgba(225, 6, 0, 0.18);
+      border-radius: 14px;
+      padding: 18px 20px;
+      text-align: left;
+    }
+    .instruction-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #E10600;
+      margin-bottom: 10px;
+    }
+    .instruction ol { padding-left: 18px; }
+    .instruction li {
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.7;
+    }
+    .footer {
+      margin-top: 22px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    @media print {
+      body { background: white; padding: 0; }
+      .card { box-shadow: none; border: 2px solid #E10600; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="${absLogo}" alt="Sportminedor" class="logo" />
+    <div class="divider"></div>
+    <div class="tournament-name">${nom}</div>
+    ${dates ? `<div class="tournament-date">📅 ${dates}</div>` : ""}
+    <div class="qr-wrap">
+      <img src="${dataUrl}" alt="QR Code" />
+    </div>
+    <div class="instruction">
+      <div class="instruction-title">📲 Comment s'inscrire au tournoi ?</div>
+      <ol>
+        <li>Ouvre l'appareil photo de ton téléphone</li>
+        <li>Pointe-le vers ce QR code</li>
+        <li>Appuie sur le lien qui apparaît</li>
+        <li>Remplis le formulaire d'inscription</li>
+      </ol>
+    </div>
+    <div class="footer">sportminedor-suivi.vercel.app</div>
+  </div>
+  <script>window.onload = function() { window.print(); }</script>
+</body>
+</html>`);
+    win.document.close();
+  }
+
   if (!tournoi) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[2000] bg-black/50 p-4 flex items-center justify-center"
+      className="fixed inset-0 z-[2000] modal-overlay p-4 flex items-center justify-center"
       onMouseDown={onClose}
       // empêche le scroll chain vers la page derrière (navigateurs modernes)
       style={{ overscrollBehavior: "contain" }}
@@ -156,18 +293,27 @@ export default function TournoiQRModal({ tournoi, onClose }) {
         <div className="px-5 pb-5 pt-0">
           <button
             type="button"
-            onClick={downloadQR}
+            onClick={printQR}
             disabled={!dataUrl}
             className="w-full h-12 rounded-xl text-white font-semibold disabled:opacity-40 transition flex items-center justify-center gap-2"
             style={{ background: RED }}
           >
+            <span aria-hidden>🖨️</span>
+            Imprimer le QR code
+          </button>
+          <button
+            type="button"
+            onClick={downloadQR}
+            disabled={!dataUrl}
+            className="mt-2 w-full h-11 rounded-xl border font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 flex items-center justify-center gap-2"
+          >
             <span aria-hidden>⬇️</span>
-            Télécharger le QR code
+            Télécharger
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="mt-3 w-full h-11 rounded-xl border font-medium text-gray-700 hover:bg-gray-50"
+            className="mt-2 w-full h-11 rounded-xl border font-medium text-gray-700 hover:bg-gray-50"
           >
             Fermer
           </button>

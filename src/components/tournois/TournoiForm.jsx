@@ -78,9 +78,9 @@ export default function TournoiForm({ initial, onDone }) {
       className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200"
     >
       {/* layout compact: 4 colonnes dès md */}
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3">
         {/* Nom (prend 2 colonnes en md) */}
-        <div className="md:col-span-2">
+        <div>
           <label className="block text-sm font-medium text-gray-700">
             Nom du tournoi
           </label>
@@ -115,7 +115,7 @@ export default function TournoiForm({ initial, onDone }) {
         </div>
 
         {/* Blue */}
-<div className="md:col-span-2 flex items-center gap-3 mt-1">
+<div className="flex items-center gap-3 mt-1">
   <input
     id="use_blue"
     type="checkbox"
@@ -129,7 +129,7 @@ export default function TournoiForm({ initial, onDone }) {
 </div>
 
         {/* Infos (2 colonnes) */}
-        <div className="md:col-span-2">
+        <div>
           <label className="block text-sm font-medium text-gray-700">Informations</label>
           <textarea
             className="mt-1 w-full border rounded-md px-3 py-2 h-24"
@@ -139,7 +139,7 @@ export default function TournoiForm({ initial, onDone }) {
         </div>
 
         {/* Cordeurs (2 colonnes, compact) */}
-        <div className="md:col-span-2">
+        <div>
           <label className="block text-sm font-medium text-gray-700">Cordeurs</label>
           <div className="mt-1 border rounded-md px-2 py-1 max-h-28 overflow-auto">
             {optionsCordeurs.map((c) => (

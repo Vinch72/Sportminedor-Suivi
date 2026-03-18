@@ -936,7 +936,7 @@
 
         {/* Modale Paiement */}
         {payDialog && (
-          <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40" onClick={() => setPayDialog(null)}>
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center modal-overlay" onClick={() => setPayDialog(null)}>
             <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-start gap-3">
                 <div className="text-2xl leading-none">💶</div>
@@ -1001,7 +1001,7 @@
         )}
 
         {editingRow && (
-          <div className="fixed inset-0 bg-black/30 flex justify-end z-50" onClick={() => setEditingRow(null)}>
+          <div className="fixed inset-0 modal-overlay flex justify-end z-50" onClick={() => setEditingRow(null)}>
             <div className="w-full max-w-xl bg-white h-full p-4 overflow-auto" onClick={(e) => e.stopPropagation()}>
               <TournoiRacketForm
                 tournoiName={tournoiName}
@@ -1018,7 +1018,7 @@
         )}
               {/* ✅ Modale confirmation "Ajouter toutes au Suivi" */}
         {confirmAllOpen && (
-    <div className="fixed inset-0 z-[2500] flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-[2500] flex items-center justify-center modal-overlay p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="p-5 flex items-start gap-3">

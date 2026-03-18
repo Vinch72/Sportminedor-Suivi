@@ -6,7 +6,7 @@ export default function TournoiVentesModal({ tournoi, onClose }) {
   const tournoiName = typeof tournoi === "string" ? tournoi : tournoi?.tournoi;
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose}>
+    <div className="fixed inset-0 modal-overlay z-50" onClick={onClose}>
       <div
         className="absolute inset-0 bg-white overflow-y-auto"
         onClick={(e) => e.stopPropagation()}

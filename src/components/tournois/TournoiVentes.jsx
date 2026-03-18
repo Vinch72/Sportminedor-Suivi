@@ -574,7 +574,7 @@ export default function TournoiVentes({ tournoiName }) {
 
       {/* ── Suppression ── */}
       {deleteDialog && (
-        <div className="fixed inset-0 z-[2100] flex items-center justify-center bg-black/40 p-4" onClick={() => setDeleteDialog(null)}>
+        <div className="fixed inset-0 z-[2100] flex items-center justify-center modal-overlay p-4" onClick={() => setDeleteDialog(null)}>
           <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-3">
               <div className="text-2xl">🗑️</div>

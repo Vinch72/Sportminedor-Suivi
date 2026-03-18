@@ -71,6 +71,7 @@ const [deleteDialog, setDeleteDialog] = useState(null);
   // form (create/edit)
   const [editingName, setEditingName] = useState(null); // primary key is the "clubs" name
   const isEdit = !!editingName;
+  const [formOpen, setFormOpen] = useState(false);
 
   const [name, setName] = useState("");
   const [bobineBase, setBobineBase] = useState(false);
@@ -157,14 +158,25 @@ const filteredClubs = useMemo(() => {
     setBobineBase(false);
     setBobineSpec(false);
   }
+
+  function closeFormModal() {
+    setEditingName(null);
+    setName("");
+    setBobineBase(false);
+    setBobineSpec(false);
+    setLogoFile(null);
+    setLogoPreview("");
+    setFormOpen(false);
+  }
+
   function fillForm(c) {
     setEditingName(c.clubs);
     setName(c.clubs);
     setBobineBase(!!c.bobine_base);
     setBobineSpec(!!c.bobine_specific);
-    window.scrollTo({ top: 0, behavior: "smooth" });
     setLogoPreview(c.logo_url || "");
     setLogoFile(null);
+    setFormOpen(true);
   }
 
   // === CRUD form ===
@@ -234,7 +246,7 @@ setClubs(prev => prev.map(c =>
 ));
 await refreshAlerts();
 window.dispatchEvent(new CustomEvent("clubs:updated", { detail: { clubs: finalPayload.clubs }}));
-resetForm();
+closeFormModal();
 return;
       }
 
@@ -249,8 +261,8 @@ return;
     setClubs(prev => [data, ...prev]);
     await refreshAlerts();
     window.dispatchEvent(new CustomEvent("clubs:updated", { detail: { clubs: data.clubs }}));
-    resetForm();
-    
+    closeFormModal();
+
     } catch (e) {
       setErr(e.message || "Erreur d'enregistrement");
     } finally {
@@ -540,71 +552,71 @@ async function openBobineLot(type, batchIndex) {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <img
-          src={logo}
-          alt=""
-          className="h-8 w-8 rounded-full select-none"
-        />
-        <span>Gestion des Clubs</span>
-      </h1>
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <img
+            src={logo}
+            alt=""
+            className="h-8 w-8 rounded-full select-none"
+          />
+          <span>Gestion des Clubs</span>
+        </h1>
+        <button
+          type="button"
+          onClick={() => { closeFormModal(); setFormOpen(true); }}
+          className="flex items-center gap-2 px-4 h-10 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition"
+          style={{ background: "#E10600" }}
+        >
+          + Ajouter un club
+        </button>
+      </div>
 
-      {/* Formulaire rouge/noir */}
-      <div className="bg-white rounded-xl shadow-card border border-gray-100">
-        <div className="px-5 py-4 border-b bg-brand-dark text-white rounded-t-xl">
-          <div className="flex items-center justify-between">
-            <div className="font-semibold">{isEdit ? "Modifier le club" : "Ajouter un club"}</div>
-            {isEdit && (
-              <button onClick={resetForm} className="text-sm underline decoration-brand-red hover:opacity-90">
-                Annuler l’édition
-              </button>
-            )}
-          </div>
-        </div>
+      {/* Modal formulaire club */}
+      {formOpen && (
+        <Modal narrow onClose={closeFormModal} title={isEdit ? "Modifier le club" : "Ajouter un club"}>
+          <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4">
+            <Field label="Nom du club" required>
+              <input className="w-full border rounded-lg p-2" value={name} onChange={e=>setName(e.target.value)} />
+            </Field>
 
-        <form onSubmit={onSubmit} className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Field label="Nom du club" required>
-            <input className="w-full border rounded-lg p-2" value={name} onChange={e=>setName(e.target.value)} />
-          </Field>
+            <Field label="Bobine classique (base)">
+              <Toggle checked={bobineBase} onChange={setBobineBase} />
+            </Field>
 
-          <Field label="Bobine classique (base)">
-            <Toggle checked={bobineBase} onChange={setBobineBase} />
-          </Field>
+            <Field label="Bobine spéciale (spécifique)">
+              <Toggle checked={bobineSpec} onChange={setBobineSpec} />
+            </Field>
 
-          <Field label="Bobine spéciale (spécifique)">
-            <Toggle checked={bobineSpec} onChange={setBobineSpec} />
-          </Field>
+            <Field label="Logo">
+              <LogoUploader
+                value={logoPreview}
+                onFile={async (f) => {
+                  setLogoFile(f);
+                  const dataUrl = await fileToDataUrl(f);
+                  setLogoPreview(dataUrl);
+                }}
+                onClear={() => { setLogoFile(null); setLogoPreview(""); }}
+              />
+            </Field>
 
-          <Field label="Logo">
-  <LogoUploader
-    value={logoPreview}
-    onFile={async (f) => {
-      setLogoFile(f);
-      const dataUrl = await fileToDataUrl(f);
-      setLogoPreview(dataUrl);
-    }}
-    onClear={() => { setLogoFile(null); setLogoPreview(""); }}
-  />
-</Field>
+            {err && <div className="text-red-600 text-sm">{err}</div>}
 
-          {err && <div className="md:col-span-3 text-red-600">{err}</div>}
-
-          <div className="md:col-span-3 flex justify-end gap-2">
-            {isEdit && (
-              <button type="button" onClick={resetForm} className="px-4 py-2 rounded-lg border">
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={closeFormModal} className="px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50">
                 Annuler
               </button>
-            )}
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 rounded-lg bg-brand-red text-white disabled:opacity-50"
-            >
-              {saving ? (isEdit ? "Mise à jour…" : "Ajout…") : (isEdit ? "Mettre à jour" : "Ajouter")}
-            </button>
-          </div>
-        </form>
-      </div>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 rounded-lg text-white disabled:opacity-50"
+                style={{ background: "#E10600" }}
+              >
+                {saving ? (isEdit ? "Mise à jour…" : "Ajout…") : (isEdit ? "Mettre à jour" : "Ajouter")}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* Recherche club */}
 <div className="mt-6">
@@ -1117,7 +1129,7 @@ function Detail({ label, value }) {
   );
 }
 
-function Modal({ title, children, onClose }) {
+function Modal({ title, children, onClose, narrow = false }) {
   // Échap + bloque le scroll de la page
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose?.();
@@ -1133,17 +1145,17 @@ function Modal({ title, children, onClose }) {
   return createPortal(
     <div className="fixed inset-0 z-[10000]">
       {/* Backdrop cliquable */}
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 modal-overlay" onClick={onClose} />
 
       {/* Carte centrée */}
       <div className="absolute inset-0 flex justify-center px-3 py-4 sm:py-8 overflow-y-auto">
         <div
-  className="
+  className={`
     relative bg-white shadow-card rounded-2xl
-    w-full max-w-5xl
+    w-full ${narrow ? "max-w-sm" : "max-w-5xl"}
     max-h-[85vh]
     overflow-hidden flex flex-col
-  "
+  `}
 >
           {/* Header sticky (X) */}
           <div className="sticky top-0 z-10 bg-white px-4 py-2.5 border-b flex items-center justify-between">

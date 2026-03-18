@@ -476,7 +476,7 @@ export default function TournoiList({ onEdit, onOpen, onOpenVentes, query = "" }
       {/* Confirm delete */}
       {deleteDialog && (
         <div
-          className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40"
+          className="fixed inset-0 z-[2000] flex items-center justify-center modal-overlay"
           onClick={() => setDeleteDialog(null)}
         >
           <div

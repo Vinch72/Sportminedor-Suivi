@@ -89,6 +89,7 @@ export default function Clients() {
   // formulaire (création / édition)
   const [editingId, setEditingId] = useState(null);
   const isEdit = !!editingId;
+  const [formOpen, setFormOpen] = useState(false);
 
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
@@ -196,6 +197,14 @@ export default function Clients() {
     setPhone(""); setEmail("");
   }
 
+  function closeFormModal() {
+    setEditingId(null);
+    setNom(""); setPrenom("");
+    setTension(""); setCordage(""); setClub("");
+    setPhone(""); setEmail("");
+    setFormOpen(false);
+  }
+
   function fillFormFromClient(c) {
     setEditingId(c.id);
     setNom(formatNom(c.nom || ""));
@@ -205,7 +214,7 @@ export default function Clients() {
     setClub(c.club || "");
     setPhone(c.phone ? formatPhone(c.phone) : "");
     setEmail(c.email || "");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setFormOpen(true);
   }
 
   async function onSubmit(e) {
@@ -235,7 +244,7 @@ export default function Clients() {
         if (error) throw error;
         setClients(prev => sortByNomPrenom(prev.map(c => (c.id === editingId ? data : c))));
         window.dispatchEvent(new CustomEvent("clients:updated", { detail: { id: editingId }}));
-        resetForm();
+        closeFormModal();
         return;
       }
 
@@ -247,7 +256,7 @@ export default function Clients() {
       if (error) throw error;
       setClients(prev => sortByNomPrenom([...(prev || []), data]));
       window.dispatchEvent(new CustomEvent("clients:updated", { detail: { id: data.id }}));
-      resetForm();
+      closeFormModal();
     } catch (e) {
       setErr(e.message || "Erreur d'enregistrement");
     } finally {
@@ -315,72 +324,23 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
   // rendu
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <img
-          src={logo}
-          alt=""
-          className="h-8 w-8 rounded-full select-none"
-        />
-        <span>Gestion des Clients</span>
-    </h1>
-
-      {/* Formulaire rouge/noir */}
-      <div className="bg-white rounded-xl shadow-card border border-gray-100">
-        <div className="px-5 py-4 border-b bg-brand-dark text-white rounded-t-xl">
-          <div className="flex items-center justify-between">
-            <div className="font-semibold">{isEdit ? "Modifier le client" : "Ajouter un nouveau client"}</div>
-            {isEdit && (
-              <button
-                onClick={resetForm}
-                className="text-sm underline decoration-brand-red hover:opacity-90"
-              >
-                Annuler l’édition
-              </button>
-            )}
-          </div>
-        </div>
-
-        <form onSubmit={onSubmit} className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Field label="Nom" required>
-            <input className="w-full border rounded-lg p-2" value={nom} onChange={e=>setNom(formatNom(e.target.value))} />
-          </Field>
-          <Field label="Prénom" required>
-            <input className="w-full border rounded-lg p-2" value={prenom} onChange={e=>setPrenom(formatPrenom(e.target.value))} />
-          </Field>
-          <Field label="Tension">
-            <input className="w-full border rounded-lg p-2" placeholder="ex: 11-11,5" value={tension} onChange={e=>setTension(e.target.value)} />
-          </Field>
-          <Field label="Cordage">
-            <select className="w-full border rounded-lg p-2" value={cordage} onChange={e=>setCordage(e.target.value)}>
-              <option value="">—</option>
-              {cordagesList.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
-          <Field label="Club">
-            <select className="w-full border rounded-lg p-2" value={club} onChange={e=>setClub(e.target.value)}>
-              <option value="">—</option>
-              {clubsList.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
-          <Field label="Téléphone (optionnel)">
-            <input className="w-full border rounded-lg p-2" value={phone} onChange={e=>setPhone(formatPhone(e.target.value))} />
-          </Field>
-          <Field label="Email (optionnel)">
-            <input type="email" className="w-full border rounded-lg p-2" value={email} onChange={e=>setEmail(e.target.value)} />
-          </Field>
-
-          {err && <div className="md:col-span-2 lg:col-span-3 text-red-600">{err}</div>}
-
-          <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 rounded-lg bg-brand-red text-white disabled:opacity-50"
-            >
-              {saving ? (isEdit ? "Mise à jour…" : "Ajout…") : (isEdit ? "Mettre à jour" : "Ajouter")}
-            </button>
-          </div>
-        </form>
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <img
+            src={logo}
+            alt=""
+            className="h-8 w-8 rounded-full select-none"
+          />
+          <span>Gestion des Clients</span>
+        </h1>
+        <button
+          type="button"
+          onClick={() => { closeFormModal(); setFormOpen(true); }}
+          className="flex items-center gap-2 px-4 h-10 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition"
+          style={{ background: "#E10600" }}
+        >
+          + Ajouter un client
+        </button>
       </div>
 
       {/* Recherche client */}
@@ -547,6 +507,57 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
   )}
 </div>
 
+      {/* Modal formulaire client */}
+      {formOpen && (
+        <Modal wide onClose={closeFormModal} title={isEdit ? "Modifier le client" : "Ajouter un client"}>
+          <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4">
+            <Field label="Nom" required>
+              <input className="w-full border rounded-lg p-2" value={nom} onChange={e=>setNom(formatNom(e.target.value))} />
+            </Field>
+            <Field label="Prénom" required>
+              <input className="w-full border rounded-lg p-2" value={prenom} onChange={e=>setPrenom(formatPrenom(e.target.value))} />
+            </Field>
+            <Field label="Tension">
+              <input className="w-full border rounded-lg p-2" placeholder="ex: 11-11,5" value={tension} onChange={e=>setTension(e.target.value)} />
+            </Field>
+            <Field label="Cordage">
+              <select className="w-full border rounded-lg p-2" value={cordage} onChange={e=>setCordage(e.target.value)}>
+                <option value="">—</option>
+                {cordagesList.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
+            <Field label="Club">
+              <select className="w-full border rounded-lg p-2" value={club} onChange={e=>setClub(e.target.value)}>
+                <option value="">—</option>
+                {clubsList.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
+            <Field label="Téléphone (optionnel)">
+              <input className="w-full border rounded-lg p-2" value={phone} onChange={e=>setPhone(formatPhone(e.target.value))} />
+            </Field>
+            <Field label="Email (optionnel)">
+              <input type="email" className="w-full border rounded-lg p-2" value={email} onChange={e=>setEmail(e.target.value)} />
+            </Field>
+
+            {err && <div className="text-red-600 text-sm">{err}</div>}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={closeFormModal} className="px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50">
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 rounded-lg text-white disabled:opacity-50"
+                style={{ background: "#E10600" }}
+              >
+                {saving ? (isEdit ? "Mise à jour…" : "Ajout…") : (isEdit ? "Mettre à jour" : "Ajouter")}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {/* Popup détail + notes */}
       {selected && (
         <Modal onClose={() => setSelected(null)} title="Fiche client">
@@ -584,7 +595,7 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
 
 {deleteDialog && (
   <div
-    className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40"
+    className="fixed inset-0 z-[2000] flex items-center justify-center modal-overlay"
     onClick={() => setDeleteDialog(null)}
   >
     <div
@@ -664,7 +675,7 @@ function Detail({ label, value }) {
     </div>
   );
 }
-function Modal({ title, children, onClose }) {
+function Modal({ title, children, onClose, wide = false }) {
   // Échap + bloque le scroll de la page
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose?.();
@@ -680,18 +691,13 @@ function Modal({ title, children, onClose }) {
   return createPortal(
     <div className="fixed inset-0 z-[10000]">
       {/* Backdrop cliquable */}
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 modal-overlay" onClick={onClose} />
 
       {/* Carte centrée, étroite et pas trop haute */}
       <div className="absolute inset-0 flex items-center justify-center px-3">
         <div
-          className="
-            relative bg-white shadow-card rounded-2xl
-            w-[92vw] max-w-[24rem]      /* étroit sur desktop et mobile */
-            sm:max-w-[26rem] md:max-w-[30rem]
-            max-h-[78vh]                /* contenu scrolle */
-            overflow-hidden flex flex-col
-          "
+          className="relative bg-white shadow-card rounded-2xl max-h-[85vh] overflow-hidden flex flex-col"
+          style={{ width: "92vw", maxWidth: wide ? 600 : 420 }}
         >
           {/* Header sticky */}
           <div className="sticky top-0 bg-white px-4 py-2.5 border-b flex items-center justify-between">
