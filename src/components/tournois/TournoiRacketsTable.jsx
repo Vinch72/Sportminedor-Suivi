@@ -147,7 +147,7 @@
       await supabase.from("suivi").insert([{
         client_id: row.client_id ?? null,
         client_phone: row.client?.phone ?? null,
-        cordage_id: row.cordage_id ?? row.cordage_text ?? null,
+        cordage_id: row.cordage_id ?? null,
         tension: row.tension ?? null,
         cordeur_id: row.cordeur_id ?? null,
         statut_id: row.statut_id ?? null,
