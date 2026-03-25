@@ -25,7 +25,7 @@ export function useTournoiRackets(tournoiName) {
       const { data, error } = await supabase
         .from("tournoi_raquettes")
         .select(`
-          id, created_at, tournoi, client_id, cordeur_id, cordage_id, tension, date, statut_id,
+          id, created_at, tournoi, client_id, cordeur_id, cordage_id, cordage_text, tension, date, statut_id,
           reglement_mode, reglement_date, exported, club_id,
           offert, fourni, contacted_at,
           gain_cents, gain_frozen_at,

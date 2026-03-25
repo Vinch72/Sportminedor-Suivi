@@ -182,26 +182,32 @@ export default function TournoiPublic() {
       const { data: cordData } = await supabase.from("tournoi_cordeurs").select("cordeur").eq("tournoi", tournoiId);
       const cordeurs    = (cordData || []).map(d => d.cordeur);
       const autoCordeur = cordeurs.length === 1 ? cordeurs[0] : null;
+      // Quand fourni : le cordage est libre (texte) → cordage_text, pas cordage_id (FK)
+      const knownCordage = cordages.find(c => c.cordage === form.cordage_id);
+      const cordageId   = (!form.fourni || knownCordage) ? (form.cordage_id || null) : null;
+      const cordageText = form.fourni && !knownCordage ? (form.cordage_id || null) : null;
+
       const { error } = await supabase.from("tournoi_raquettes").insert({
-        tournoi:    tournoiId,
-        client_id:  client.id,
-        cordage_id: form.cordage_id,
-        tension:    form.tension  || null,
-        raquette:   form.raquette || null,
-        notes:      form.notes    || null,
-        club_id:    client.club   || null,
-        cordeur_id: autoCordeur,
-        fourni:     form.fourni,
-        statut_id:  "A FAIRE",
-        exported:   false,
+        tournoi:      tournoiId,
+        client_id:    client.id,
+        cordage_id:   cordageId,
+        cordage_text: cordageText,
+        tension:      form.tension  || null,
+        raquette:     form.raquette || null,
+        notes:        form.notes    || null,
+        club_id:      client.club   || null,
+        cordeur_id:   autoCordeur,
+        fourni:       form.fourni,
+        statut_id:    "A FAIRE",
+        exported:     false,
       });
       if (error) throw error;
 
       // Mise à jour fiche client : cordage + tension (silencieux)
       if (client.id && (form.cordage_id || form.tension)) {
         const patch = {};
-        if (form.cordage_id) patch.cordage  = form.cordage_id;
-        if (form.tension)    patch.tension  = form.tension;
+        if (form.cordage_id) patch.cordage = form.cordage_id;
+        if (form.tension)    patch.tension = form.tension;
         await supabase.from("clients").update(patch).eq("id", client.id);
       }
 

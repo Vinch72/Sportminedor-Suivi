@@ -486,7 +486,7 @@
         if (snappingRef.current.has(r.id)) continue;
         snappingRef.current.add(r.id);
         const isOffert = r.offert === true || /offert/i.test(String(r.reglement_mode || ""));
-        const cordageLabel = (r.cordage?.cordage || r.cordage_id || "").toString().trim().toUpperCase();
+        const cordageLabel = (r.cordage?.cordage || r.cordage_id || r.cordage_text || "").toString().trim().toUpperCase();
         const gainEur = computeGainCordeur({
           offert: isOffert,
           fourni: r.fourni,
@@ -750,7 +750,7 @@
               <div className="font-semibold text-sm md:text-base">
     {/* Ligne 1 : cordage + tension */}
     <div className="truncate">
-      {r.cordage?.cordage || r.cordage_id || "—"}
+      {r.cordage?.cordage || r.cordage_id || r.cordage_text || "—"}
       {r.tension ? ` • ${r.tension}` : ""}
       {/* ✅ Desktop : badge à droite */}
       {r.raquette && (
