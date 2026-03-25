@@ -14,7 +14,7 @@ export default function ComboBox({
   items = [],
   value,
   onChange,
-  placeholder = "Rechercher…",
+  placeholder = "Rechercher...",
   allowCustom = false,
 }) {
   const [open, setOpen] = useState(false);
@@ -26,14 +26,14 @@ export default function ComboBox({
     [items, value]
   );
 
- useEffect(() => {
-  const onDown = (e) => {
-    if (!rootRef.current) return;
-    if (!rootRef.current.contains(e.target)) setOpen(false);
-  };
-  window.addEventListener("mousedown", onDown);
-  return () => window.removeEventListener("mousedown", onDown);
-}, []);
+  useEffect(() => {
+    const onDown = (e) => {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target)) setOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -78,36 +78,34 @@ export default function ComboBox({
             }}
             title="Effacer"
           >
-            ✖
+            &#x2716;
           </button>
         )}
       </div>
 
       {open && (
-        <div className=”absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-md border bg-white shadow”>
+        <div className="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-md border bg-white shadow">
           {filtered.length === 0 ? (
-            <div className=”px-3 py-2 text-sm text-gray-500”>
-              Aucun résultat
+            <div className="px-3 py-2 text-sm text-gray-500">
+              Aucun resultat
               {allowCustom && query && (
-                <> — <button className=”underline” onClick={() => pick(query)}>utiliser “{query}”</button></>
+                <> &mdash; <button className="underline" onClick={() => pick(query)}>utiliser &quot;{query}&quot;</button></>
               )}
             </div>
           ) : query.trim() ? (
-            // Recherche active → liste plate
             filtered.map((i) => (
-              <button key={i.value} type=”button”
-                className=”block w-full text-left px-3 py-2 text-sm hover:bg-black/5”
+              <button key={i.value} type="button"
+                className="block w-full text-left px-3 py-2 text-sm hover:bg-black/5"
                 onClick={() => pick(i.value)}>
                 {i.label}
               </button>
             ))
           ) : (
-            // Pas de recherche → groupé par marque si disponible
             (() => {
               const hasGroups = filtered.some(i => i.group);
               if (!hasGroups) return filtered.map((i) => (
-                <button key={i.value} type=”button”
-                  className=”block w-full text-left px-3 py-2 text-sm hover:bg-black/5”
+                <button key={i.value} type="button"
+                  className="block w-full text-left px-3 py-2 text-sm hover:bg-black/5"
                   onClick={() => pick(i.value)}>
                   {i.label}
                 </button>
@@ -115,16 +113,16 @@ export default function ComboBox({
               const groups = {};
               const order = [];
               filtered.forEach(i => {
-                const g = i.group || “Autres”;
+                const g = i.group || "Autres";
                 if (!groups[g]) { groups[g] = []; order.push(g); }
                 groups[g].push(i);
               });
               return order.map(g => (
                 <div key={g}>
-                  <div className=”px-3 pt-2 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wide”>{g}</div>
+                  <div className="px-3 pt-2 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">{g}</div>
                   {groups[g].map(i => (
-                    <button key={i.value} type=”button”
-                      className=”block w-full text-left px-3 py-2 text-sm hover:bg-black/5”
+                    <button key={i.value} type="button"
+                      className="block w-full text-left px-3 py-2 text-sm hover:bg-black/5"
                       onClick={() => pick(i.value)}>
                       {i.label}
                     </button>
