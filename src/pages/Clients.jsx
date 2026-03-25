@@ -123,7 +123,7 @@ export default function Clients() {
     try {
       const [clb, crd, cls] = await Promise.all([
         supabase.from("clubs").select("clubs").order("clubs"),
-        supabase.from("cordages").select("cordage").order("cordage"),
+        supabase.from("cordages").select("cordage, marque").order("marque", { nullsFirst: false }).order("cordage"),
         supabase.from("clients").select("*").order("nom").order("prenom"),
       ]);
       const firstErr = [clb, crd, cls].find(r => r.error)?.error;
@@ -148,6 +148,15 @@ export default function Clients() {
 
   // helpers
   const cordagesList = useMemo(() => cordages.map(c => c.cordage), [cordages]);
+  const cordagesGrouped = useMemo(() => {
+    const groups = {}; const order = [];
+    cordages.forEach(c => {
+      const g = c.marque || "Autres";
+      if (!groups[g]) { groups[g] = []; order.push(g); }
+      groups[g].push(c.cordage);
+    });
+    return { groups, order };
+  }, [cordages]);
   const clubsList = useMemo(() => clubs.map(c => c.clubs), [clubs]);
   const notePreview = (s) => {
     if (!s) return null;
@@ -522,7 +531,14 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
             <Field label="Cordage">
               <select className="w-full border rounded-lg p-2" value={cordage} onChange={e=>setCordage(e.target.value)}>
                 <option value="">—</option>
-                {cordagesList.map(c => <option key={c} value={c}>{c}</option>)}
+                {cordagesGrouped.order.length <= 1
+                  ? cordagesList.map(c => <option key={c} value={c}>{c}</option>)
+                  : cordagesGrouped.order.map(g => (
+                      <optgroup key={g} label={g}>
+                        {cordagesGrouped.groups[g].map(c => <option key={c} value={c}>{c}</option>)}
+                      </optgroup>
+                    ))
+                }
               </select>
             </Field>
             <Field label="Club">

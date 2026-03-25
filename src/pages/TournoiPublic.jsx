@@ -74,15 +74,24 @@ export default function TournoiPublic() {
   useEffect(() => {
     if (!tournoiId) { setStep(STEP.NOT_FOUND); return; }
     async function init() {
-      const [rT, rC, rCl, rTm] = await Promise.all([
+      const [rT, rC, rCl, rTm, rTCord] = await Promise.all([
         supabase.from("tournois").select("tournoi, start_date, end_date, date, infos").eq("tournoi", tournoiId).single(),
-        supabase.from("cordages").select("cordage, is_base").order("cordage"),
+        supabase.from("cordages").select("cordage, is_base, marque").order("marque", { nullsFirst: false }).order("cordage"),
         supabase.from("clubs").select("clubs, bobine_base, bobine_specific").order("clubs"),
         supabase.from("tarif_matrix").select("*"),
+        supabase.from("tournoi_cordages").select("cordage_id").eq("tournoi", tournoiId),
       ]);
       if (rT.error || !rT.data) { setStep(STEP.NOT_FOUND); return; }
       setTournoi(rT.data);
-      setCordages(rC.data || []);
+
+      // Si des cordages sont définis pour ce tournoi, on filtre ; sinon tous
+      const allCordages = rC.data || [];
+      const linkedIds = (rTCord.data || []).map(r => r.cordage_id);
+      setCordages(linkedIds.length > 0
+        ? allCordages.filter(c => linkedIds.includes(c.cordage))
+        : allCordages
+      );
+
       const cl = rCl.data || [];
       setClubs(cl);
       setClubsData(cl);
@@ -187,6 +196,15 @@ export default function TournoiPublic() {
         exported:   false,
       });
       if (error) throw error;
+
+      // Mise à jour fiche client : cordage + tension (silencieux)
+      if (client.id && (form.cordage_id || form.tension)) {
+        const patch = {};
+        if (form.cordage_id) patch.cordage  = form.cordage_id;
+        if (form.tension)    patch.tension  = form.tension;
+        await supabase.from("clients").update(patch).eq("id", client.id);
+      }
+
       setStep(STEP.SUCCESS);
     } catch (err) {
       setFormErr(err.message);
@@ -194,7 +212,7 @@ export default function TournoiPublic() {
     } finally { setSaving(false); }
   }
 
-  const cordageLabel = cordages.find(c => c.cordage === form.cordage_id)?.cordage || "—";
+  const cordageLabel = form.cordage_id || "—";
   const tournoiDate  = fmtTournoiDate(tournoi);
   const prix         = computePrice(client?.club || "", form.cordage_id, form.fourni);
   const prixFmt      = prix !== null ? prix.toFixed(2).replace(".", ",") + " €" : null;
@@ -380,7 +398,7 @@ export default function TournoiPublic() {
               e.preventDefault();
               if (!form.raquette.trim())  { setFormErr("Le modèle de raquette est requis."); return; }
               if (!client.club)           { setFormErr("Le club est requis."); return; }
-              if (!form.cordage_id)       { setFormErr("Le cordage est requis."); return; }
+              if (!form.fourni && !form.cordage_id) { setFormErr("Le cordage est requis."); return; }
               if (!form.tension.trim())   { setFormErr("La tension est requise."); return; }
               setFormErr(""); setStep(STEP.CONFIRM);
             }}>
@@ -402,36 +420,8 @@ export default function TournoiPublic() {
                     placeholder="YONEX ASTROX 88S PRO" value={form.raquette}
                     onChange={e => setForm(f => ({ ...f, raquette: e.target.value.toUpperCase() }))} />
                 </div>
-                <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-700">
-                    Cordage
-                    <span className="ml-1 text-xs text-gray-400 font-normal">(demande si ton cordage est disponible)</span>
-                  </label>
-                  <select className="w-full border-2 rounded-xl px-4 h-11 bg-white text-sm focus:outline-none transition"
-                    style={{ borderColor: form.cordage_id ? RED : "#e5e7eb" }}
-                    value={form.cordage_id}
-                    onChange={e => setForm(f => ({ ...f, cordage_id: e.target.value }))}>
-                    <option value="">— Choisir un cordage —</option>
-                    {cordages.map(c => (
-                      <option key={c.cordage} value={c.cordage}>
-                        {c.cordage}{c.is_base ? " [Classique]" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-700">
-                    Tension
-                    <span className="ml-1 text-xs text-gray-400 font-normal">(ex: 11 ou 11-11,5)</span>
-                  </label>
-                  <input className="w-full border-2 rounded-xl px-4 h-11 text-sm focus:outline-none transition"
-                    style={{ borderColor: form.tension ? RED : "#e5e7eb" }}
-                    placeholder="11" value={form.tension}
-                    onChange={e => setForm(f => ({ ...f, tension: e.target.value }))} />
-                </div>
-
                 {/* Cordage fourni */}
-                <button type="button" onClick={() => setForm(f => ({ ...f, fourni: !f.fourni }))}
+                <button type="button" onClick={() => setForm(f => ({ ...f, fourni: !f.fourni, cordage_id: "" }))}
                   className="w-full flex items-center gap-3 px-4 h-12 rounded-xl border-2 transition text-left"
                   style={form.fourni
                     ? { borderColor: RED, background: "rgba(225,6,0,0.05)" }
@@ -449,6 +439,56 @@ export default function TournoiPublic() {
                     <div className="text-xs text-gray-500">Coche si tu apportes toi-même le cordage</div>
                   </div>
                 </button>
+
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">
+                    {form.fourni ? "Nom de ton cordage" : "Cordage"}
+                    {!form.fourni && <span className="ml-1 text-xs text-gray-400 font-normal">(demande si ton cordage est disponible)</span>}
+                    {form.fourni && <span className="ml-1 text-xs text-gray-400 font-normal">(optionnel)</span>}
+                  </label>
+                  {form.fourni ? (
+                    <input
+                      className="w-full border-2 rounded-xl px-4 h-11 text-sm focus:outline-none transition"
+                      style={{ borderColor: form.cordage_id ? RED : "#e5e7eb" }}
+                      placeholder="ex: BG65, Victor VS850…"
+                      value={form.cordage_id}
+                      onChange={e => setForm(f => ({ ...f, cordage_id: e.target.value }))}
+                    />
+                  ) : (
+                    <select className="w-full border-2 rounded-xl px-4 h-11 bg-white text-sm focus:outline-none transition"
+                      style={{ borderColor: form.cordage_id ? RED : "#e5e7eb" }}
+                      value={form.cordage_id}
+                      onChange={e => setForm(f => ({ ...f, cordage_id: e.target.value }))}>
+                      <option value="">— Choisir un cordage —</option>
+                      {(() => {
+                        const groups = {};
+                        const order = [];
+                        cordages.forEach(c => {
+                          const g = c.marque || "Autres";
+                          if (!groups[g]) { groups[g] = []; order.push(g); }
+                          groups[g].push(c);
+                        });
+                        if (order.length <= 1) return cordages.map(c => <option key={c.cordage} value={c.cordage}>{c.cordage}</option>);
+                        return order.map(g => (
+                          <optgroup key={g} label={g}>
+                            {groups[g].map(c => <option key={c.cordage} value={c.cordage}>{c.cordage}</option>)}
+                          </optgroup>
+                        ));
+                      })()}
+                    </select>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-700">
+                    Tension
+                    <span className="ml-1 text-xs text-gray-400 font-normal">(ex: 11 ou 11-11,5)</span>
+                  </label>
+                  <input className="w-full border-2 rounded-xl px-4 h-11 text-sm focus:outline-none transition"
+                    style={{ borderColor: form.tension ? RED : "#e5e7eb" }}
+                    placeholder="11" value={form.tension}
+                    onChange={e => setForm(f => ({ ...f, tension: e.target.value }))} />
+                </div>
 
                 {/* Notes */}
                 <div>

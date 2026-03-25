@@ -54,7 +54,7 @@ export function useTournois() {
    * @param {{initial?: {tournoi:string, start_date?:string, end_date?:string, date?:string, infos?:string, use_blue?:boolean}, tournoi:string, start_date?:string, end_date?:string, date?:string, infos?:string, use_blue?:boolean, cordeurIdsOrNames?: string[]}} params
    */
   const createOrUpdate = useCallback(
-    async ({ initial, tournoi, start_date, end_date, date, infos, use_blue, cordeurIdsOrNames }) => {
+    async ({ initial, tournoi, start_date, end_date, date, infos, use_blue, cordeurIdsOrNames, cordageIds }) => {
       if (!tournoi) throw new Error("Nom du tournoi requis");
 
       // Normalisation: tolère l'ancien champ 'date'
@@ -94,15 +94,31 @@ export function useTournois() {
           .delete()
           .in("tournoi", [initial.tournoi, tournoi]);
         if (delErr) throw delErr;
+
+        const { error: delCordErr } = await supabase
+          .from("tournoi_cordages")
+          .delete()
+          .in("tournoi", [initial.tournoi, tournoi]);
+        if (delCordErr) throw delCordErr;
       }
 
       // (Ré)insère les liens cordeurs
-      const clean = (cordeurIdsOrNames || []).filter(Boolean);
-      if (clean.length) {
-        const rows = clean.map((c) => ({ tournoi, cordeur: c }));
+      const cleanCordeurs = (cordeurIdsOrNames || []).filter(Boolean);
+      if (cleanCordeurs.length) {
+        const rows = cleanCordeurs.map((c) => ({ tournoi, cordeur: c }));
         const { error: linkErr } = await supabase
           .from("tournoi_cordeurs")
           .upsert(rows, { onConflict: "tournoi,cordeur" });
+        if (linkErr) throw linkErr;
+      }
+
+      // (Ré)insère les liens cordages
+      const cleanCordages = (cordageIds || []).filter(Boolean);
+      if (cleanCordages.length) {
+        const rows = cleanCordages.map((c) => ({ tournoi, cordage_id: c }));
+        const { error: linkErr } = await supabase
+          .from("tournoi_cordages")
+          .upsert(rows, { onConflict: "tournoi,cordage_id" });
         if (linkErr) throw linkErr;
       }
 
@@ -131,6 +147,16 @@ export function useTournois() {
     return (data || []).map((r) => r.cordeur);
   }, []);
 
+  /** Récupère la liste des cordage_id (array de strings) pour un tournoi */
+  const getCordages = useCallback(async (tournoiName) => {
+    const { data, error } = await supabase
+      .from("tournoi_cordages")
+      .select("cordage_id")
+      .eq("tournoi", tournoiName);
+    if (error) throw error;
+    return (data || []).map((r) => r.cordage_id);
+  }, []);
+
   return {
     loading,
     items,
@@ -138,5 +164,6 @@ export function useTournois() {
     createOrUpdate,
     remove,
     getCordeurs,
+    getCordages,
   };
 }

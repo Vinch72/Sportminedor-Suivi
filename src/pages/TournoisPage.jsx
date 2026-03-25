@@ -1,5 +1,5 @@
 // src/pages/TournoisPage.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import TournoiForm from "../components/tournois/TournoiForm";
 import TournoiList from "../components/tournois/TournoiList";
@@ -10,13 +10,14 @@ import PageHeader from "../components/ui/PageHeader";
 function getParam(key) {
   return new URLSearchParams(window.location.search).get(key) || null;
 }
-function setParams(open, ventes) {
+function setParams(open, ventes, push = false) {
   const url = new URL(window.location.href);
   if (open) url.searchParams.set("open", open);
   else url.searchParams.delete("open");
   if (ventes) url.searchParams.set("ventes", ventes);
   else url.searchParams.delete("ventes");
-  window.history.replaceState(null, "", url.toString());
+  if (push) window.history.pushState(null, "", url.toString());
+  else window.history.replaceState(null, "", url.toString());
 }
 
 export default function TournoisPage() {
@@ -32,6 +33,9 @@ export default function TournoisPage() {
   });
   const [formOpen, setFormOpen] = useState(false);
 
+  const prevOpened = useRef(opened);
+  const prevOpenedVentes = useRef(openedVentes);
+
   // Sync URL → state (popstate)
   useEffect(() => {
     const onPop = () => {
@@ -42,9 +46,15 @@ export default function TournoisPage() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  // Sync state → URL
+  // Sync state → URL (pushState à l'ouverture d'une nouvelle couche)
   useEffect(() => {
-    setParams(opened?.tournoi ?? null, openedVentes?.tournoi ?? null);
+    const wasOpen   = !!(prevOpened.current?.tournoi || prevOpenedVentes.current?.tournoi);
+    const isOpen    = !!(opened?.tournoi || openedVentes?.tournoi);
+    const ventesJustOpened = !prevOpenedVentes.current?.tournoi && !!openedVentes?.tournoi;
+    const push = (!wasOpen && isOpen) || ventesJustOpened;
+    prevOpened.current = opened;
+    prevOpenedVentes.current = openedVentes;
+    setParams(opened?.tournoi ?? null, openedVentes?.tournoi ?? null, push);
   }, [opened, openedVentes]);
 
   useEffect(() => {
@@ -116,7 +126,7 @@ export default function TournoisPage() {
         </TournoiFormModal>
       )}
 
-      {opened && <TournoiDetailModal tournoi={opened} onClose={() => { setOpened(null); }} />}
+      {opened && <TournoiDetailModal tournoi={opened} onClose={() => { setOpened(null); }} onOpenVentes={(t) => setOpenedVentes(t)} />}
       {openedVentes && <TournoiVentesModal tournoi={openedVentes} onClose={() => setOpenedVentes(null)} />}
     </div>
   );

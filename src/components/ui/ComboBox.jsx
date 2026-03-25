@@ -84,30 +84,54 @@ export default function ComboBox({
       </div>
 
       {open && (
-        <div className="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-md border bg-white shadow">
+        <div className=”absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-md border bg-white shadow”>
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-gray-500">
+            <div className=”px-3 py-2 text-sm text-gray-500”>
               Aucun résultat
               {allowCustom && query && (
-                <>
-                  {" "}
-                  — <button className="underline" onClick={() => pick(query)}>
-                    utiliser “{query}”
-                  </button>
-                </>
+                <> — <button className=”underline” onClick={() => pick(query)}>utiliser “{query}”</button></>
               )}
             </div>
-          ) : (
+          ) : query.trim() ? (
+            // Recherche active → liste plate
             filtered.map((i) => (
-              <button
-                key={i.value}
-                type="button"
-                className="block w-full text-left px-3 py-2 text-sm hover:bg-black/5"
-                onClick={() => pick(i.value)}
-              >
+              <button key={i.value} type=”button”
+                className=”block w-full text-left px-3 py-2 text-sm hover:bg-black/5”
+                onClick={() => pick(i.value)}>
                 {i.label}
               </button>
             ))
+          ) : (
+            // Pas de recherche → groupé par marque si disponible
+            (() => {
+              const hasGroups = filtered.some(i => i.group);
+              if (!hasGroups) return filtered.map((i) => (
+                <button key={i.value} type=”button”
+                  className=”block w-full text-left px-3 py-2 text-sm hover:bg-black/5”
+                  onClick={() => pick(i.value)}>
+                  {i.label}
+                </button>
+              ));
+              const groups = {};
+              const order = [];
+              filtered.forEach(i => {
+                const g = i.group || “Autres”;
+                if (!groups[g]) { groups[g] = []; order.push(g); }
+                groups[g].push(i);
+              });
+              return order.map(g => (
+                <div key={g}>
+                  <div className=”px-3 pt-2 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wide”>{g}</div>
+                  {groups[g].map(i => (
+                    <button key={i.value} type=”button”
+                      className=”block w-full text-left px-3 py-2 text-sm hover:bg-black/5”
+                      onClick={() => pick(i.value)}>
+                      {i.label}
+                    </button>
+                  ))}
+                </div>
+              ));
+            })()
           )}
         </div>
       )}

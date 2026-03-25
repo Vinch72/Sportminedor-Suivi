@@ -38,7 +38,7 @@ export default function NewClientInline({ onCreated }) {
   useEffect(() => {
     (async () => {
       const [co, cl] = await Promise.all([
-        supabase.from("cordages").select("cordage, Couleur").order("cordage"),
+        supabase.from("cordages").select("cordage, Couleur, marque").order("marque", { nullsFirst: false }).order("cordage"),
         supabase.from("clubs").select("clubs").order("clubs"),
       ]);
       if (!co.error) setCordages(co.data || []);
@@ -90,6 +90,7 @@ export default function NewClientInline({ onCreated }) {
       (cordages || []).map((co) => ({
         value: co.cordage,
         label: co.Couleur && co.Couleur !== "none" ? `● ${co.cordage}` : co.cordage,
+        group: co.marque || "Autres",
       })),
     [cordages]
   );

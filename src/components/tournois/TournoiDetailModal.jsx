@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../utils/supabaseClient";
 import TournoiRacketForm from "./TournoiRacketForm";
 import TournoiRacketsTable from "./TournoiRacketsTable";
-import TournoiVentesModal from "./TournoiVentesModal";
 import NewClientInline from "./NewClientInline";
 import { useTournoiRackets } from "../../hooks/useTournoiRackets";
 import logo from "../../assets/sportminedor-logo.png";
@@ -27,16 +26,20 @@ function rangeLabel(row) {
   return `Le ${fmt(start || end)}`;
 }
 
-export default function TournoiDetailModal({ tournoi, onClose }) {
+export default function TournoiDetailModal({ tournoi, onClose, onOpenVentes }) {
   const initialName = typeof tournoi === "string" ? tournoi : tournoi?.tournoi;
   const [fresh, setFresh] = useState(typeof tournoi === "object" && tournoi ? tournoi : null);
   const tournoiName = fresh?.tournoi || initialName || "Tournoi";
 
   const [cordeurs, setCordeurs] = useState([]);
   const [prefillClientId, setPrefillClientId] = useState(null);
-  const [showInfos, setShowInfos] = useState(true);
+  const [showInfos, setShowInfos] = useState(false);
   const [showRacketForm, setShowRacketForm] = useState(false);
-  const [showVentesModal, setShowVentesModal] = useState(false);
+  const [showCordagesManager, setShowCordagesManager] = useState(false);
+
+  const [allCordages, setAllCordages] = useState([]);
+  const [selectedCordages, setSelectedCordages] = useState([]);
+  const [savingCordages, setSavingCordages] = useState(false);
 
   const { rows: rackets, priceForRow, clubFlagsForRow, load } = useTournoiRackets(tournoiName);
 
@@ -67,8 +70,18 @@ export default function TournoiDetailModal({ tournoi, onClose }) {
       if (!mounted) return;
       setCordeurs((data || []).map((d) => d.cordeur));
     }
+    async function loadCordages() {
+      const [rAll, rLinked] = await Promise.all([
+        supabase.from("cordages").select("cordage, marque").order("marque", { nullsFirst: false }).order("cordage"),
+        supabase.from("tournoi_cordages").select("cordage_id").eq("tournoi", initialName),
+      ]);
+      if (!mounted) return;
+      setAllCordages(rAll.data || []);
+      setSelectedCordages((rLinked.data || []).map(c => c.cordage_id));
+    }
     loadTournament();
     loadCordeurs();
+    loadCordages();
     const onUpdated = () => { loadTournament(); loadCordeurs(); };
     window.addEventListener("tournois:updated", onUpdated);
     return () => { mounted = false; window.removeEventListener("tournois:updated", onUpdated); };
@@ -78,6 +91,20 @@ export default function TournoiDetailModal({ tournoi, onClose }) {
   useEffect(() => {
     if (prefillClientId) setShowRacketForm(true);
   }, [prefillClientId]);
+
+  async function saveCordages() {
+    setSavingCordages(true);
+    try {
+      await supabase.from("tournoi_cordages").delete().eq("tournoi", tournoiName);
+      if (selectedCordages.length > 0) {
+        await supabase.from("tournoi_cordages").insert(
+          selectedCordages.map(c => ({ tournoi: tournoiName, cordage_id: c }))
+        );
+      }
+    } finally {
+      setSavingCordages(false);
+    }
+  }
 
   if (!tournoi) return null;
 
@@ -94,59 +121,6 @@ export default function TournoiDetailModal({ tournoi, onClose }) {
     setConfirmOpen(true);
   }
 
-  async function unlockTournament() {
-    askConfirm(
-      { title: "Déverrouiller ce tournoi ?", message: "Les gains figés restent enregistrés.", icon: "🔓", confirmLabel: "Déverrouiller", cancelLabel: "Annuler", danger: false },
-      async () => {
-        try {
-          const { error } = await supabase.from("tournois").update({ locked: false, locked_at: null }).eq("tournoi", tournoiName);
-          if (error) throw error;
-          const { data: freshRow } = await supabase.from("tournois").select("*").eq("tournoi", tournoiName).maybeSingle();
-          if (freshRow) setFresh(freshRow);
-          window.dispatchEvent(new Event("tournois:updated"));
-        } catch (e) { showToast("Erreur", e?.message || "Échec du déverrouillage", "warning"); }
-      }
-    );
-  }
-
-  async function finalizeTournament() {
-    askConfirm(
-      { title: "Verrouiller le tournoi ?", message: "Figer tous les gains et verrouiller ?", icon: "🔒", confirmLabel: "Verrouiller", cancelLabel: "Annuler", danger: true },
-      async () => {
-        try {
-          const norm = (s) => (s || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toUpperCase();
-          const toFreeze = (rackets || []).filter((r) => norm(r.statut_id) !== "A FAIRE" && r.gain_cents == null);
-          const { data: cords, error: e2 } = await supabase.from("cordages").select("cordage, gain_cents");
-          if (e2) throw e2;
-          const gainMap = new Map((cords || []).map((c) => [(c.cordage || "").toString().trim().toUpperCase(), Number.isInteger(c.gain_cents) ? c.gain_cents : 0]));
-          const [{ data: f12 }, { data: f14 }] = await Promise.all([
-            supabase.from("app_settings").select("*").eq("key", "fourni_gain_12_cents").maybeSingle(),
-            supabase.from("app_settings").select("*").eq("key", "fourni_gain_14_cents").maybeSingle(),
-          ]);
-          const fourni12GainEur = (f12?.value_cents ?? 1000) / 100;
-          const fourni14GainEur = (f14?.value_cents ?? 1166) / 100;
-          for (const r of toFreeze) {
-            const key = (r.cordage_id || "").toString().trim().toUpperCase();
-            const gainEur = computeGainCordeur({
-              offert: !!r.offert, fourni: !!r.fourni, tarifEur: priceForRow(r),
-              ...clubFlagsForRow(r), gainCentsSnapshot: null,
-              gainFromCordageEur: (gainMap.get(key) ?? 0) / 100,
-              ruleGain12Eur: fourni12GainEur, ruleGain14Eur: fourni14GainEur,
-            });
-            const { error: e3 } = await supabase.from("tournoi_raquettes").update({ gain_cents: Math.round(gainEur * 100), gain_frozen_at: new Date().toISOString() }).eq("id", r.id);
-            if (e3) throw e3;
-          }
-          const { error: e4 } = await supabase.from("tournois").update({ locked: true, locked_at: new Date().toISOString() }).eq("tournoi", tournoiName);
-          if (e4) throw e4;
-          await load?.();
-          showToast("✅ Tournoi verrouillé", "Gains figés et tournoi verrouillé.", "success");
-          const { data: freshRow } = await supabase.from("tournois").select("*").eq("tournoi", tournoiName).maybeSingle();
-          if (freshRow) setFresh(freshRow);
-          window.dispatchEvent(new Event("tournois:updated"));
-        } catch (e) { showToast("Erreur", e?.message || "Échec du verrouillage", "warning"); }
-      }
-    );
-  }
 
   return (
     <>
@@ -205,15 +179,76 @@ export default function TournoiDetailModal({ tournoi, onClose }) {
                 </div>
               )}
             </div>
+
+            {/* Accordéon : Cordages disponibles */}
+            <div className="border border-gray-200 rounded-xl bg-white overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowCordagesManager(o => !o)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition"
+              >
+                <span className="text-base leading-none">🧵</span>
+                <span className="font-medium text-sm flex-1">Gérer mes cordages disponibles sur le tournoi</span>
+                <span className="text-gray-400 text-xs">{showCordagesManager ? "▲" : "▼"}</span>
+              </button>
+              {showCordagesManager && (
+                <div className="border-t border-gray-100 px-4 py-4">
+                  <p className="text-xs text-gray-500 mb-3">
+                    Coche les cordages disponibles. Le QR Code n'affichera que ceux-là.
+                    {selectedCordages.length === 0 && " Si aucun coché → tous les cordages sont affichés."}
+                  </p>
+                  <div className="max-h-48 overflow-auto">
+                    {(() => {
+                      const groups = {}; const order = [];
+                      allCordages.forEach(c => {
+                        const g = c.marque || "Autres";
+                        if (!groups[g]) { groups[g] = []; order.push(g); }
+                        groups[g].push(c.cordage);
+                      });
+                      if (order.length <= 1) return (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                          {allCordages.map(c => (
+                            <label key={c.cordage} className="flex items-center gap-2 text-sm py-0.5">
+                              <input type="checkbox" checked={selectedCordages.includes(c.cordage)}
+                                onChange={e => setSelectedCordages(prev => e.target.checked ? [...prev, c.cordage] : prev.filter(x => x !== c.cordage))} />
+                              <span>{c.cordage}</span>
+                            </label>
+                          ))}
+                        </div>
+                      );
+                      return order.map(g => (
+                        <div key={g} className="mb-2">
+                          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-0.5 mb-1">{g}</div>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                            {groups[g].map(name => (
+                              <label key={name} className="flex items-center gap-2 text-sm py-0.5">
+                                <input type="checkbox" checked={selectedCordages.includes(name)}
+                                  onChange={e => setSelectedCordages(prev => e.target.checked ? [...prev, name] : prev.filter(x => x !== name))} />
+                                <span>{name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={savingCordages}
+                    onClick={saveCordages}
+                    className="mt-4 btn-red px-4 py-2 rounded-xl text-white text-sm"
+                  >
+                    {savingCordages ? "Enregistrement…" : "Enregistrer"}
+                  </button>
+                </div>
+              )}
+            </div>
             </div>{/* fin accordéons */}
 
             {/* Suivi du tournoi */}
             <TournoiRacketsTable
               tournoiName={tournoiName}
-              locked={!!fresh?.locked}
-              onFinalize={finalizeTournament}
-              onUnlock={unlockTournament}
-              onOpenVentes={() => setShowVentesModal(true)}
+              onOpenVentes={() => onOpenVentes?.(tournoi)}
             />
           </div>
 
@@ -237,13 +272,6 @@ export default function TournoiDetailModal({ tournoi, onClose }) {
         </div>
       </div>
 
-      {/* Modale ventes par-dessus */}
-      {showVentesModal && (
-        <TournoiVentesModal
-          tournoi={tournoi}
-          onClose={() => setShowVentesModal(false)}
-        />
-      )}
     </>
   );
 }

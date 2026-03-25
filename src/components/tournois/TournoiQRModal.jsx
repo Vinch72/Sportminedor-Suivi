@@ -184,12 +184,12 @@ export default function TournoiQRModal({ tournoi, onClose }) {
       <img src="${dataUrl}" alt="QR Code" />
     </div>
     <div class="instruction">
-      <div class="instruction-title">📲 Comment s'inscrire au tournoi ?</div>
+      <div class="instruction-title">📲 Comment déposer ma raquette ?</div>
       <ol>
         <li>Ouvre l'appareil photo de ton téléphone</li>
         <li>Pointe-le vers ce QR code</li>
         <li>Appuie sur le lien qui apparaît</li>
-        <li>Remplis le formulaire d'inscription</li>
+        <li>Remplis le formulaire de dépôt</li>
       </ol>
     </div>
     <div class="footer">sportminedor-suivi.vercel.app</div>

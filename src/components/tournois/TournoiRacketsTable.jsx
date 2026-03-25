@@ -1,5 +1,5 @@
   // src/components/tournois/TournoiRacketsTable.jsx
-  import { useEffect, useMemo, useRef, useState } from "react";
+  import { useEffect, useMemo, useRef, useState, useCallback } from "react";
   import { useTournoiRackets } from "../../hooks/useTournoiRackets";
   import { supabase } from "../../utils/supabaseClient";
   import { IconTrash, IconEdit } from "../ui/Icons";
@@ -7,8 +7,8 @@
   import TournoiRacketForm from "./TournoiRacketForm";
   import { computeGainCordeur } from "../../utils/computeGainCordeur";
 
-  export default function TournoiRacketsTable({ tournoiName, locked = false, onFinalize, onUnlock, onOpenVentes }) {
-    const { rows, loading, remove, exportAllToSuivi, updateStatut, stats, revenuePaid, load, priceForRow } =
+  export default function TournoiRacketsTable({ tournoiName, onOpenVentes }) {
+    const { rows, loading, remove, exportAllToSuivi, updateStatut, patchRow, stats, revenuePaid, load, priceForRow } =
     useTournoiRackets(tournoiName);
 
     const rowsRef = useRef(rows);
@@ -27,9 +27,7 @@
 
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterRacket, setFilterRacket] = useState(false);
-  const [filterBill,   setFilterBill]   = useState(false);
-  const [filterRet,    setFilterRet]    = useState(false);
+  const [activeFilter, setActiveFilter] = useState(null); // null | "a-faire" | "a-regler" | "a-rendre"
 
   function showToast(t) {
     setToast(t);
@@ -148,6 +146,7 @@
     try {
       await supabase.from("suivi").insert([{
         client_id: row.client_id ?? null,
+        client_phone: row.client?.phone ?? null,
         cordage_id: row.cordage_id ?? null,
         tension: row.tension ?? null,
         cordeur_id: row.cordeur_id ?? null,
@@ -240,7 +239,6 @@
     await withScrollPreserved(async () => {
       const f = deriveFlags(row);
       await applyStatut(row, { ...f, racket: !f.racket });
-      await load();
     });
   }
     async function toggleReturn(row) {
@@ -256,11 +254,11 @@
           .update({ contacted_at: when }, { returning: "minimal" })
           .eq("id", row.id);
 
+        patchRow(row.id, { contacted_at: when });
         row = { ...row, contacted_at: when }; // pour que applyStatut ait la bonne info
       }
 
       await applyStatut(row, { ...f, ret: nextRet, msg: nextRet ? true : f.msg });
-      await load();
     });
   }
     async function toggleMessage(row) {
@@ -280,8 +278,8 @@
       showToast({ type: "error", title: "Erreur", message: "Maj message refusée." });
       return;
     }
+    patchRow(row.id, { contacted_at: nextWhen });
     await applyStatut({ ...row, contacted_at: nextWhen }, { ...f, msg: !f.msg });
-    await load();
     });
     }
 
@@ -455,10 +453,12 @@
   }, [tournoiName, load]);
 
     // Gains (inchangés)
-    const [showGains, setShowGains] = useState(true);
     const [ruleGain12Eur, setRuleGain12Eur] = useState(10);
     const [ruleGain14Eur, setRuleGain14Eur] = useState(11.66);
     const [gainMap, setGainMap] = useState({});
+    const [gainMapLoaded, setGainMapLoaded] = useState(false);
+    const snappingRef = useRef(new Set());
+
     useEffect(() => {
       let alive = true;
       (async () => {
@@ -472,9 +472,36 @@
           map[key] = cents;
         }
         setGainMap(map);
+        setGainMapLoaded(true);
       })();
       return () => { alive = false; };
     }, []);
+
+    // Auto-snapshot : dès qu'une ligne n'a pas de gain_cents, on le calcule et sauvegarde
+    useEffect(() => {
+      if (!gainMapLoaded) return;
+      const toSnap = rows.filter(r => r.gain_cents == null);
+      if (!toSnap.length) return;
+      for (const r of toSnap) {
+        if (snappingRef.current.has(r.id)) continue;
+        snappingRef.current.add(r.id);
+        const isOffert = r.offert === true || /offert/i.test(String(r.reglement_mode || ""));
+        const cordageLabel = (r.cordage?.cordage || r.cordage_id || "").toString().trim().toUpperCase();
+        const gainEur = computeGainCordeur({
+          offert: isOffert,
+          fourni: r.fourni,
+          tarifEur: priceForRow(r),
+          gainCentsSnapshot: null,
+          gainFromCordageEur: (gainMap[cordageLabel] ?? 0) / 100,
+          ruleGain12Eur,
+          ruleGain14Eur,
+        });
+        const gain_cents = Math.round(gainEur * 100);
+        supabase.from("tournoi_raquettes").update({ gain_cents }).eq("id", r.id).then(() => {
+          patchRow(r.id, { gain_cents });
+        });
+      }
+    }, [rows, gainMapLoaded, gainMap, ruleGain12Eur, ruleGain14Eur, priceForRow]);
 
     useEffect(() => {
     let alive = true;
@@ -491,16 +518,6 @@
     return () => { alive = false; };
   }, []);
 
-    async function unfreezeGains() {
-      if (!confirm("Défiger les gains de ce tournoi et recalculer selon Données ?")) return;
-      const { error } = await supabase
-        .from("tournoi_raquettes")
-        .update({ gain_cents: null, gain_frozen_at: null })
-        .eq("tournoi", tournoiName);
-      if (error) { alert(error.message || "Échec du défige"); return; }
-      await load();
-      alert("Gains défigés. Le tableau reflète maintenant les tarifs actuels.");
-    }
 
     const doneRows = (rows || []).filter(r => U(r.statut_id) !== "A FAIRE");
     const gainsByCordeur = new Map();
@@ -529,13 +546,15 @@
     const normStr = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
     const filteredRows = useMemo(() => {
       const q = normStr(searchQuery);
-      const anyFlag = filterRacket || filterBill || filterRet;
       return (rows || []).filter(r => {
-        if (anyFlag) {
-          const f = deriveFlags(r);
-          if (filterRacket && !f.racket) return false;
-          if (filterBill   && !f.bill)   return false;
-          if (filterRet    && !f.ret)    return false;
+        if (activeFilter) {
+          const s = U(r.statut_id);
+          if (activeFilter === "a-faire"  && s !== "A FAIRE")  return false;
+          if (activeFilter === "a-regler" && s !== "A REGLER") return false;
+          if (activeFilter === "a-rendre") {
+            // cordée (pas "A FAIRE") mais pas encore rendue
+            if (s === "A FAIRE" || s === "RENDU") return false;
+          }
         }
         if (q) {
           const client = normStr(`${r.client?.nom || ""} ${r.client?.prenom || ""}`);
@@ -545,7 +564,7 @@
         }
         return true;
       });
-    }, [rows, searchQuery, filterRacket, filterBill, filterRet]);
+    }, [rows, searchQuery, activeFilter]);
 
     const gainsCalc = Array.from(gainsByCordeur.values())
       .sort((a,b) => b.eurosCents - a.eurosCents || a.cordeur.localeCompare(b.cordeur));
@@ -673,19 +692,19 @@
       value={searchQuery}
       onChange={e => setSearchQuery(e.target.value)}
     />
-    {/* Pills filtres */}
+    {/* Pills filtres — exclusifs (radio-like) */}
     {[
-      { active: filterRacket, set: setFilterRacket, icon: "🏸", label: "Fait" },
-      { active: filterBill,   set: setFilterBill,   icon: "💶", label: "Payé" },
-      { active: filterRet,    set: setFilterRet,    icon: "↩️", label: "Rendu" },
-    ].map(({ active, set, icon, label }) => (
+      { key: "a-faire",   icon: "🕐", label: "À faire" },
+      { key: "a-regler",  icon: "💶", label: "À régler" },
+      { key: "a-rendre",  icon: "↩️", label: "À rendre" },
+    ].map(({ key, icon, label }) => (
       <button
-        key={label}
+        key={key}
         type="button"
         title={label}
-        onClick={() => set(v => !v)}
+        onClick={() => setActiveFilter(v => v === key ? null : key)}
         className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-full border text-sm font-medium transition ${
-          active
+          activeFilter === key
             ? "bg-green-500 text-white border-green-600"
             : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
         }`}
@@ -694,15 +713,15 @@
         <span>{label}</span>
       </button>
     ))}
-    {(searchQuery || filterRacket || filterBill || filterRet) && (
+    {(searchQuery || activeFilter) && (
       <button
         className="icon-btn shrink-0"
         title="Effacer les filtres"
-        onClick={() => { setSearchQuery(""); setFilterRacket(false); setFilterBill(false); setFilterRet(false); }}
+        onClick={() => { setSearchQuery(""); setActiveFilter(null); }}
       >✕</button>
     )}
   </div>
-  {(searchQuery || filterRacket || filterBill || filterRet) && (
+  {(searchQuery || activeFilter) && (
     <div className="mt-1 text-xs text-gray-400">{filteredRows.length} / {rows.length} raquette(s)</div>
   )}
 
@@ -804,7 +823,7 @@
                 </button>
                 <button
                   className="icon-btn-red"
-                  onClick={() => !locked && remove(r.id)}
+                  onClick={() => remove(r.id)}
                   title="Supprimer"
                   aria-label="Supprimer"
                 >
@@ -874,7 +893,7 @@
     </button>
     <button
       className="icon-btn-red"
-      onClick={() => !locked && remove(r.id)}
+      onClick={() => remove(r.id)}
       title="Supprimer"
       aria-label="Supprimer"
     >
@@ -893,74 +912,31 @@
               <div className="mt-1 text-2xl font-bold">{stats.total}</div>
             </div>
 
-            {/* === Gain cordeur (toggle) === */}
-            <div className="mt-3">
-              <button
-                type="button"
-                className="text-sm text-gray-700 underline"
-                onClick={() => setShowGains(s => !s)}
-              >
-                {showGains ? "Masquer le gain cordeur" : "Afficher le gain cordeur"}
-              </button>
-
-              {showGains && (
-                <div className="mt-2 rounded-2xl border p-3 bg-white">
-                  <div className="text-sm text-gray-600 mb-2">Gain cordeur (par cordage)</div>
-
-        {gainsCalc.length === 0 ? (
-          <div className="text-sm text-gray-500">— Aucun pour l’instant</div>
-        ) : (
-          <>
-            <ul className="text-sm space-y-1">
-              {gainsCalc.map((g) => (
-                <li key={g.cordeur} className="flex justify-between">
-                  <span>{g.cordeur}</span>
-                  <span>
-                    <b>{g.count}</b> raq. &nbsp;|&nbsp; <b>{fmtEuroCents(g.eurosCents)}</b>
-                  </span>
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-2 pt-2 border-t text-sm flex justify-between font-medium">
-              <span>Total</span>
-              <span>{fmtEuroCents(totalGainCents)}</span>
+            {/* === Gain cordeur === */}
+            <div className="mt-3 rounded-2xl border p-3 bg-white">
+              <div className="text-sm text-gray-600 mb-2">Gain cordeur (par cordage)</div>
+              {gainsCalc.length === 0 ? (
+                <div className="text-sm text-gray-500">— Aucun pour l’instant</div>
+              ) : (
+                <>
+                  <ul className="text-sm space-y-1">
+                    {gainsCalc.map((g) => (
+                      <li key={g.cordeur} className="flex justify-between">
+                        <span>{g.cordeur}</span>
+                        <span>
+                          <b>{g.count}</b> raq. &nbsp;|&nbsp; <b>{fmtEuroCents(g.eurosCents)}</b>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-2 pt-2 border-t text-sm flex justify-between font-medium">
+                    <span>Total</span>
+                    <span>{fmtEuroCents(totalGainCents)}</span>
+                  </div>
+                </>
+              )}
             </div>
-          </>
-        )}
-      </div>
-    )}
-  </div>
 
-            {locked ? (
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center px-2 py-1 rounded bg-green-100 text-green-700 text-xs">
-                  ✅ Tournoi verrouillé
-                </span>
-                {onUnlock && (
-                  <button type="button" className="icon-btn" onClick={onUnlock} title="Déverrouiller">🔓</button>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="btn-red px-3 py-1 rounded-xl text-white"
-                  onClick={onFinalize}
-                  title="Figer les gains et verrouiller le tournoi"
-                >
-                  Tournoi terminé
-                </button>
-                <button
-                  type="button"
-                  className="text-xs underline text-gray-600"
-                  onClick={unfreezeGains}
-                  title="Effacer les snapshots et recalculer selon Données"
-                >
-                  Recalculer d’après Données
-                </button>
-              </div>
-            )}
           </div>
 
           <div className="rounded-xl border p-3">

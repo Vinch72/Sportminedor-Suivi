@@ -141,7 +141,7 @@ useEffect(() => {
           supabase.from("clients").select("id, nom, prenom, club, tension, cordage, phone").order("nom"),
           supabase.from("statuts").select("statut_id").order("statut_id"),
           supabase.from("clubs").select("clubs, bobine_base, bobine_specific").order("clubs"),
-          supabase.from("cordages").select("cordage, is_base").order("cordage"),
+          supabase.from("cordages").select("cordage, is_base, marque").order("marque", { nullsFirst: false }).order("cordage"),
           supabase.from("tournois").select("tournoi"),
           supabase.from("cordeur").select("cordeur").order("cordeur"),
         ]);
@@ -566,6 +566,7 @@ onDone?.({ type: "created", count: data.length });
       onChange={setCordageId}
       getValue={c => c.cordage}
       getLabel={c => c.cordage}
+      getGroup={c => c.marque || "Autres"}
       placeholder="Rechercher un cordage…"
     />
   </Field>
@@ -716,6 +717,7 @@ function SearchSelect({
   onChange,
   getLabel,
   getValue,
+  getGroup,
   placeholder = "Rechercher…",
   allowEmpty = false,
 }) {
@@ -776,22 +778,44 @@ function SearchSelect({
         >
           {filtered.length === 0 ? (
             <div className="px-3 py-2 text-sm text-gray-500">Aucun résultat</div>
-          ) : (
-            filtered.map((it) => {
-              const val = getValue(it);
-              const label = getLabel(it);
-              return (
-                <button
-                  type="button"
-                  key={val}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-50"
-                  onMouseDown={(e) => { e.preventDefault(); pick(val); }}
-                >
-                  {label}
-                </button>
-              );
-            })
-          )}
+          ) : query.trim() ? (
+            filtered.map((it) => (
+              <button type="button" key={getValue(it)}
+                className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                onMouseDown={(e) => { e.preventDefault(); pick(getValue(it)); }}>
+                {getLabel(it)}
+              </button>
+            ))
+          ) : (() => {
+            const resolveGroup = (it) => getGroup ? getGroup(it) : (it.group || null);
+            const hasGroups = filtered.some(it => resolveGroup(it));
+            if (!hasGroups) return filtered.map((it) => (
+              <button type="button" key={getValue(it)}
+                className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                onMouseDown={(e) => { e.preventDefault(); pick(getValue(it)); }}>
+                {getLabel(it)}
+              </button>
+            ));
+            const groups = {};
+            const order = [];
+            filtered.forEach(it => {
+              const g = resolveGroup(it) || "Autres";
+              if (!groups[g]) { groups[g] = []; order.push(g); }
+              groups[g].push(it);
+            });
+            return order.map(g => (
+              <div key={g}>
+                <div className="px-3 pt-2 pb-0.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">{g}</div>
+                {groups[g].map(it => (
+                  <button type="button" key={getValue(it)}
+                    className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                    onMouseDown={(e) => { e.preventDefault(); pick(getValue(it)); }}>
+                    {getLabel(it)}
+                  </button>
+                ))}
+              </div>
+            ));
+          })()}
         </div>
       )}
     </div>

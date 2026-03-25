@@ -30,7 +30,7 @@ export function useTournoiRackets(tournoiName) {
           offert, fourni, contacted_at,
           gain_cents, gain_frozen_at,
           raquette,
-          client:clients(id, nom, prenom),
+          client:clients(id, nom, prenom, phone),
           cordeur:cordeur(cordeur),
           cordage:cordages(cordage, is_base),
           notes
@@ -101,23 +101,30 @@ export function useTournoiRackets(tournoiName) {
     [load]
   );
 
+  const patchRow = useCallback((id, patch) => {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }, []);
+
   const updateStatut = useCallback(
     async (id, statut_id) => {
-      // Optimiste
-      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, statut_id } : r)));
-
       const patch = { statut_id };
       if (statut_id && (statut_id === "PAYE" || statut_id === "PAYÉ")) {
         patch.reglement_date = new Date().toISOString();
       }
+      // Optimiste — full patch
+      let originalRow;
+      setRows((prev) => {
+        originalRow = prev.find((r) => r.id === id);
+        return prev.map((r) => (r.id === id ? { ...r, ...patch } : r));
+      });
+
       const { error } = await supabase.from("tournoi_raquettes").update(patch).eq("id", id);
       if (error) {
-        setRows((prev) => prev.map((r) => (r.id === id ? { ...r, statut_id: null } : r)));
+        if (originalRow) setRows((prev) => prev.map((r) => (r.id === id ? originalRow : r)));
         throw error;
       }
-      await load();
     },
-    [load]
+    []
   );
 
   const markExported = useCallback(async (ids) => {
@@ -238,6 +245,7 @@ const exportAllToSuivi = useCallback(async (opts = {}) => {
     return {
       client_id: r.client_id || null,
       client_name: clientName,
+      client_phone: r.client?.phone || null,
       cordage_id: r.cordage_id || null,
       tension: r.tension || null,
       cordeur_id: r.cordeur_id || null,
@@ -333,6 +341,7 @@ const exportAllToSuivi = useCallback(async (opts = {}) => {
     load,
     remove,
     updateStatut,
+    patchRow,
     exportAllToSuivi,
     stats,
     countsByStatut,

@@ -43,6 +43,7 @@ function formatPrenom(s) {
       club_id: "",
       fourni: false,
       offert: false,
+      notes: "",
       qty: 1,
     });
 
@@ -62,6 +63,7 @@ function formatPrenom(s) {
       club_id: initialData.club_id || "",
       fourni: !!initialData.fourni,
       offert: !!initialData.offert,
+      notes: initialData.notes || "",
       qty: 1,
     });
   }, [editingId, initialData]);
@@ -72,7 +74,7 @@ function formatPrenom(s) {
     const loadLookups = async () => {
       const [c, co, s, cr, cl, tc, tm] = await Promise.all([
         supabase.from("clients").select("id, nom, prenom, tension, cordage, club").order("nom"),
-        supabase.from("cordages").select("cordage, is_base, Couleur").order("cordage"),
+        supabase.from("cordages").select("cordage, is_base, Couleur, marque").order("marque", { nullsFirst: false }).order("cordage"),
         supabase.from("statuts").select("statut_id"),
         supabase.from("cordeur").select("cordeur").order("cordeur"),
         supabase.from("clubs").select("clubs, bobine_base, bobine_specific").order("clubs"),
@@ -192,6 +194,7 @@ const submit = async (e) => {
       fourni: !!form.fourni,
       offert: !!form.offert,
       date: dateISO,
+      notes: form.notes || null,
     };
 
     if (editingId) {
@@ -242,6 +245,7 @@ const submit = async (e) => {
         club_id: "",
         fourni: false,
         offert: false,
+        notes: "",
         qty: 1,
       });
       setCount(1);
@@ -277,7 +281,7 @@ const submit = async (e) => {
 
     // ------- Items ComboBox -------
     const clientItems  = useMemo(() => clients.map((c) => ({ value: c.id, label: `${formatNom(c.nom)} ${formatPrenom(c.prenom)}`.trim() })), [clients]);
-    const cordageItems = useMemo(() => cordages.map((co) => ({ value: co.cordage, label: co.Couleur && co.Couleur !== "none" ? `● ${co.cordage}` : co.cordage })), [cordages]);
+    const cordageItems = useMemo(() => cordages.map((co) => ({ value: co.cordage, label: co.Couleur && co.Couleur !== "none" ? `● ${co.cordage}` : co.cordage, group: co.marque || "Autres" })), [cordages]);
     const clubItems    = useMemo(() => (clubs || []).map((cl) => ({ value: cl.clubs, label: cl.clubs })), [clubs]);
     const cordeurItems = useMemo(() => (cordeurs || []).map((c) => ({ value: c.cordeur, label: c.cordeur })), [cordeurs]);
     const statutItems  = useMemo(() => (statuts || []).map((s) => ({ value: s.statut_id, label: s.statut_id })), [statuts]);
@@ -394,6 +398,17 @@ const submit = async (e) => {
               onChange={(v) => setForm((f) => ({ ...f, club_id: v || "" }))}
               placeholder="Rechercher un club…"
               allowCustom={true}
+            />
+          </div>
+
+          <div className="md:col-span-3">
+            <label className="text-sm">Notes</label>
+            <textarea
+              className="border rounded-md px-3 py-2 w-full resize-none text-sm"
+              rows={2}
+              placeholder="Remarques, demandes particulières…"
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             />
           </div>
 
