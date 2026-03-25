@@ -1170,9 +1170,11 @@ for (const r of done) {
 
       {/* Modale édition */}
       {editingRow && (
-        <div className="fixed inset-0 modal-overlay flex justify-end z-50" onClick={() => setEditingRow(null)}>
+        <div className="fixed inset-0 z-50" onClick={() => setEditingRow(null)}>
+          <div className="absolute inset-0 modal-overlay" />
+          <div className="absolute inset-0 flex justify-end">
 <div
-  className="w-full max-w-xl bg-white max-h-[90vh] p-4 overflow-y-auto rounded-l-2xl"
+  className="w-full max-w-xl bg-white h-full p-4 overflow-y-auto"
   onClick={(e) => e.stopPropagation()}
 >
             <SuiviForm
@@ -1183,6 +1185,7 @@ for (const r of done) {
                 window.dispatchEvent(new CustomEvent("suivi:updated", { detail: { id: editingRow.id } }));
               }}
             />
+          </div>
           </div>
         </div>
       )}
