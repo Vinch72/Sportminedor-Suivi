@@ -247,6 +247,7 @@ const exportAllToSuivi = useCallback(async (opts = {}) => {
       client_name: clientName,
       client_phone: r.client?.phone || null,
       cordage_id: r.cordage_id || null,
+      note: r.cordage_text ? `[Cordage fourni : ${r.cordage_text}]${r.notes ? `\n${r.notes}` : ""}` : (r.notes || null),
       tension: r.tension || null,
       cordeur_id: r.cordeur_id || null,
 

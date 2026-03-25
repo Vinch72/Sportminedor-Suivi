@@ -380,7 +380,7 @@
         return;
       }
 
-      load();
+      for (const id of ids) patchRow(id, { ...patchBase, statut_id: nextStatut });
       return;
     }
 
@@ -415,7 +415,7 @@
       return;
     }
 
-    load();
+    for (const id of ids) patchRow(id, { ...patch, statut_id: nextStatut });
   }
 
     // Ouvrir la modale paiement automatiquement si nouvelle raquette créée en PAYÉ depuis le form
