@@ -7,13 +7,14 @@ import sportminedorLogo from "../assets/sportminedor-logo.png";
 const RED = "#E10600";
 
 const STEP = {
-  LOADING:    "loading",
-  NOT_FOUND:  "not_found",
-  PHONE:      "phone",
-  NEW_CLIENT: "new_client",
-  RACKET:     "racket",
-  CONFIRM:    "confirm",
-  SUCCESS:    "success",
+  LOADING:       "loading",
+  NOT_FOUND:     "not_found",
+  PHONE:         "phone",
+  SELECT_CLIENT: "select_client",
+  NEW_CLIENT:    "new_client",
+  RACKET:        "racket",
+  CONFIRM:       "confirm",
+  SUCCESS:       "success",
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -46,6 +47,7 @@ export default function TournoiPublic() {
   const [phone,        setPhone]        = useState("");
   const [phoneErr,     setPhoneErr]     = useState("");
   const [phoneLoading, setPhoneLoading] = useState(false);
+  const [matchingClients, setMatchingClients] = useState([]);
   const [newClient,    setNewClient]    = useState({ nom: "", prenom: "", phone: "", club_id: "" });
   const [clientErr,    setClientErr]    = useState("");
   const [savingClient, setSavingClient] = useState(false);
@@ -59,10 +61,11 @@ export default function TournoiPublic() {
     function handlePopState() {
       window.history.pushState(null, "", window.location.href);
       setStep(prev => {
-        if (prev === STEP.NEW_CLIENT) return STEP.PHONE;
-        if (prev === STEP.RACKET)     return STEP.PHONE;
-        if (prev === STEP.CONFIRM)    return STEP.RACKET;
-        if (prev === STEP.SUCCESS)    return STEP.SUCCESS;
+        if (prev === STEP.SELECT_CLIENT) return STEP.PHONE;
+        if (prev === STEP.NEW_CLIENT)    return STEP.PHONE;
+        if (prev === STEP.RACKET)        return STEP.PHONE;
+        if (prev === STEP.CONFIRM)       return STEP.RACKET;
+        if (prev === STEP.SUCCESS)       return STEP.SUCCESS;
         return prev;
       });
     }
@@ -137,15 +140,18 @@ export default function TournoiPublic() {
     if (!isValid) { setPhoneErr("Numéro invalide — entre un 06 ou 07 (ex: 06 12 34 56 78)"); return; }
     const normalized = normalizePhone(cleaned);
     setPhoneLoading(true);
-    let found = null;
-    const r1 = await supabase.from("clients").select("id, nom, prenom, phone, cordage, tension, club").eq("phone", normalized).maybeSingle();
-    if (r1.data) found = r1.data;
-    else {
-      const r2 = await supabase.from("clients").select("id, nom, prenom, phone, cordage, tension, club").eq("phone", phone.replace(/[\s.\-]/g, "")).maybeSingle();
-      if (r2.data) found = r2.data;
+    const r1 = await supabase.from("clients").select("id, nom, prenom, phone, cordage, tension, club").eq("phone", normalized);
+    let results = r1.data || [];
+    if (results.length === 0) {
+      const r2 = await supabase.from("clients").select("id, nom, prenom, phone, cordage, tension, club").eq("phone", phone.replace(/[\s.\-]/g, ""));
+      results = r2.data || [];
     }
     setPhoneLoading(false);
-    if (found) {
+    if (results.length > 1) {
+      setMatchingClients(results);
+      setStep(STEP.SELECT_CLIENT);
+    } else if (results.length === 1) {
+      const found = results[0];
       setClient(found);
       setForm(f => ({ ...f, cordage_id: found.cordage || "", tension: found.tension || "" }));
       setStep(STEP.RACKET);
@@ -153,6 +159,12 @@ export default function TournoiPublic() {
       setNewClient(c => ({ ...c, phone: normalized }));
       setStep(STEP.NEW_CLIENT);
     }
+  }
+
+  function handleSelectClient(selected) {
+    setClient(selected);
+    setForm(f => ({ ...f, cordage_id: selected.cordage || "", tension: selected.tension || "" }));
+    setStep(STEP.RACKET);
   }
 
   async function handleNewClientSubmit(e) {
@@ -222,7 +234,7 @@ export default function TournoiPublic() {
   const tournoiDate  = fmtTournoiDate(tournoi);
   const prix         = computePrice(client?.club || "", form.cordage_id, form.fourni);
   const prixFmt      = prix !== null ? prix.toFixed(2).replace(".", ",") + " €" : null;
-  const showWarn     = [STEP.PHONE, STEP.NEW_CLIENT, STEP.RACKET].includes(step);
+  const showWarn     = [STEP.PHONE, STEP.SELECT_CLIENT, STEP.NEW_CLIENT, STEP.RACKET].includes(step);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -336,6 +348,34 @@ export default function TournoiPublic() {
                 franck.dessaux@sportminedor.com
               </a>.
             </p>
+          </Card>
+        )}
+
+        {/* ── ÉTAPE 1b : Sélection du profil ── */}
+        {step === STEP.SELECT_CLIENT && (
+          <Card title="👤 Qui es-tu ?" subtitle="Plusieurs profils ont le même numéro. Sélectionne le tien.">
+            <div className="space-y-3">
+              {matchingClients.map(c => (
+                <button key={c.id} type="button"
+                  onClick={() => handleSelectClient(c)}
+                  className="w-full flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition"
+                  style={{ borderColor: "#e5e7eb" }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = RED}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = "#e5e7eb"}>
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
+                    style={{ background: RED }}>
+                    {(fmtPrenom(c.prenom) || fmtNom(c.nom) || "?")[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-900">{fmtPrenom(c.prenom)} {fmtNom(c.nom)}</div>
+                    {c.club && <div className="text-xs text-gray-500">{c.club}</div>}
+                  </div>
+                  <span className="ml-auto text-gray-300 text-lg">›</span>
+                </button>
+              ))}
+              <button type="button" onClick={() => { setStep(STEP.PHONE); setPhone(""); }}
+                className="w-full h-11 rounded-xl border text-sm text-gray-600 hover:bg-gray-50 mt-1">← Retour</button>
+            </div>
           </Card>
         )}
 
