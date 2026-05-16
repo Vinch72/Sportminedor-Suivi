@@ -557,7 +557,7 @@
           }
         }
         if (q) {
-          const client = normStr(`${r.client?.nom || ""} ${r.client?.prenom || ""}`);
+          const client = normStr(`${r.client?.nom || r.client_nom || ""} ${r.client?.prenom || r.client_prenom || ""}`);
           const raquette = normStr(r.raquette || "");
           const cordage = normStr(r.cordage?.cordage || r.cordage_id || "");
           if (!client.includes(q) && !raquette.includes(q) && !cordage.includes(q)) return false;
@@ -772,7 +772,7 @@
                 {/* Nom • Date • Club • Cordeur */}
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-gray-700">
                   <span className="truncate">
-                    {r.client ? `${r.client.nom || ""} ${r.client.prenom || ""}`.trim() : "—"}
+                    {([r.client?.prenom || r.client_prenom, r.client?.nom || r.client_nom].filter(Boolean).join(" ").trim()) || "—"}
                   </span>
                   <span className="text-gray-500 whitespace-nowrap">• {fmtDateOnly(r.date)}</span>
                   <span className="text-gray-500 whitespace-nowrap">

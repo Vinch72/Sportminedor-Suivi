@@ -240,7 +240,7 @@ export default function TournoiVentes({ tournoiName }) {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("tournoi_ventes").select("*").eq("tournoi_id", tournoiName).order("id", { ascending: true });
+        .from("tournoi_ventes").select("*").eq("tournoi_id", tournoiName).order("id", { ascending: false });
       if (!error) setVentes(data || []);
     } finally { setLoading(false); }
   }, [tournoiName]);

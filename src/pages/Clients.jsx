@@ -116,6 +116,7 @@ export default function Clients() {
   const [notesDraft, setNotesDraft] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  const [showDuplicates, setShowDuplicates] = useState(false);
 
   // chargement des lookups + clients
   async function loadAll() {
@@ -140,7 +141,8 @@ export default function Clients() {
   }
 
   useEffect(() => {
-  const t = setTimeout(() => setQuery(queryInput), 150); // 150-250ms = bien
+  const t = setTimeout(() => setQuery(queryInput), 150);
+  if (queryInput) setShowDuplicates(false);
   return () => clearTimeout(t);
 }, [queryInput]);
 
@@ -195,9 +197,36 @@ export default function Clients() {
   }, [clients, query]);
 
   const visibleClients = useMemo(
-  () => filteredClients.slice(0, visibleCount),
-  [filteredClients, visibleCount]
-);  
+    () => filteredClients.slice(0, visibleCount),
+    [filteredClients, visibleCount]
+  );
+
+  const duplicateGroups = useMemo(() => {
+    const byPhone = [];
+    const byName  = [];
+
+    const phoneMap = new Map();
+    clients.forEach(c => {
+      if (!c.phone) return;
+      const key = normStr(c.phone);
+      if (!phoneMap.has(key)) phoneMap.set(key, []);
+      phoneMap.get(key).push(c);
+    });
+    phoneMap.forEach(members => { if (members.length >= 2) byPhone.push(members); });
+
+    const nameMap = new Map();
+    clients.forEach(c => {
+      const key = `${normStr(c.nom)}|${normStr(c.prenom)}`;
+      if (key === "|") return;
+      if (!nameMap.has(key)) nameMap.set(key, []);
+      nameMap.get(key).push(c);
+    });
+    nameMap.forEach(members => { if (members.length >= 2) byName.push(members); });
+
+    return { byPhone, byName };
+  }, [clients]);
+
+  const duplicateCount = duplicateGroups.byPhone.length + duplicateGroups.byName.length;
   
   function resetForm() {
     setEditingId(null);
@@ -276,19 +305,12 @@ export default function Clients() {
     if (!deleteDialog) return setDeleteDialog(null);
     const c = deleteDialog;
   
-    // 1) figer le nom dans toutes les lignes de suivi de ce client
-    try {
-      await supabase
-        .from("suivi")
-        .update({
-          client_nom: c.nom || null,
-          client_prenom: c.prenom || null,
-        })
-        .eq("client_id", c.id);
-    } catch (e) {
-      console.warn("Snapshot nom/prenom avant suppression client:", e);
-      // on continue quand même
-    }
+    // 1) figer le nom dans toutes les lignes de suivi + tournoi_raquettes
+    const snapshot = { client_nom: c.nom || null, client_prenom: c.prenom || null };
+    await Promise.allSettled([
+      supabase.from("suivi").update(snapshot).eq("client_id", c.id),
+      supabase.from("tournoi_raquettes").update(snapshot).eq("client_id", c.id),
+    ]);
   
     // 2) supprimer la fiche client
     const { error } = await supabase.from("clients").delete().eq("id", c.id);
@@ -372,10 +394,88 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
 
 {/* Liste des clients */}
 <div className="mt-8">
-  <h2 className="text-lg font-semibold mb-3">Clients existants</h2>
+  <div className="flex items-center justify-between mb-3">
+    <h2 className="text-lg font-semibold">Clients existants</h2>
+    <button
+      type="button"
+      onClick={() => { setShowDuplicates(d => !d); setQueryInput(""); }}
+      className={`flex items-center gap-1.5 px-3 h-8 rounded-xl text-xs font-semibold border transition ${
+        showDuplicates
+          ? "bg-red-50 border-red-300 text-red-700"
+          : duplicateCount > 0
+            ? "bg-orange-50 border-orange-200 text-orange-700 hover:border-orange-300"
+            : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+      }`}
+    >
+      ⚠️ {showDuplicates ? "Masquer les doublons" : `Doublons${duplicateCount > 0 ? ` (${duplicateCount})` : ""}`}
+    </button>
+  </div>
 
   {loading ? (
     <div className="text-gray-500">Chargement…</div>
+  ) : showDuplicates ? (
+    duplicateCount === 0 ? (
+      <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm font-medium">
+        ✅ Aucun doublon détecté parmi {clients.length} clients.
+      </div>
+    ) : (
+      <div className="space-y-6">
+        {duplicateGroups.byPhone.length > 0 && (
+          <div>
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              📞 Même numéro — {duplicateGroups.byPhone.length} groupe{duplicateGroups.byPhone.length > 1 ? "s" : ""}
+            </div>
+            <div className="space-y-3">
+              {duplicateGroups.byPhone.map((members, i) => (
+                <div key={i} className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3">
+                  <div className="text-xs font-semibold text-orange-700 mb-3 flex items-center gap-2">
+                    📞 <span>{members[0].phone}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">{members.length} profils</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {members.map(c => (
+                      <ClientCard key={c.id} c={c}
+                        onSelect={c => { setSelected(c); setNotesDraft(c.notes ?? ""); }}
+                        onEdit={fillFormFromClient}
+                        onDelete={onDeleteClient}
+                        notePreview={notePreview}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {duplicateGroups.byName.length > 0 && (
+          <div>
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              👤 Même nom & prénom — {duplicateGroups.byName.length} groupe{duplicateGroups.byName.length > 1 ? "s" : ""}
+            </div>
+            <div className="space-y-3">
+              {duplicateGroups.byName.map((members, i) => (
+                <div key={i} className="rounded-2xl border border-blue-200 bg-blue-50/60 p-3">
+                  <div className="text-xs font-semibold text-blue-700 mb-3 flex items-center gap-2">
+                    👤 <span>{[members[0].prenom, members[0].nom].filter(Boolean).join(" ")}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">{members.length} profils</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {members.map(c => (
+                      <ClientCard key={c.id} c={c}
+                        onSelect={c => { setSelected(c); setNotesDraft(c.notes ?? ""); }}
+                        onEdit={fillFormFromClient}
+                        onDelete={onDeleteClient}
+                        notePreview={notePreview}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
   ) : filteredClients.length === 0 ? (
     <div className="text-gray-500">Aucun résultat.</div>
   ) : (
@@ -383,126 +483,21 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
       <ul className="list-none grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full">
         {visibleClients.map((c) => (
           <li key={c.id}>
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => {
-                setSelected(c);
-                setNotesDraft(c.notes ?? "");
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setSelected(c);
-                  setNotesDraft(c.notes ?? "");
-                }
-              }}
-              className="
-               flex w-full rounded-2xl border border-gray-200 bg-white shadow-sm
-               hover:shadow-md hover:border-gray-300 hover:-translate-y-[1px]
-               transition will-change-transform cursor-pointer overflow-hidden
-              "
-            >
-              {/* Liseré gauche */}
-              <div className="w-1.5 bg-[#E10600]" />
-
-              <div className="flex-1 p-4 min-w-0">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold text-brand-dark truncate">
-                      {[c.prenom, c.nom].filter(Boolean).join(" ")}
-                    </div>
-
-                    {/* Cordage + Tension (tags) */}
-                    <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                      <span className="px-2.5 py-1 rounded-full border bg-gray-50 font-medium text-gray-800">
-                        {c.cordage || "—"}
-                      </span>
-
-                      {c.tension ? (
-                        <span className="px-2.5 py-1 rounded-full border border-red-200 bg-red-50 text-red-700 font-semibold">
-                          {c.tension}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="shrink-0 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        title="Modifier"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          fillFormFromClient(c);
-                        }}
-                        className="icon-btn"
-                      >
-                        <IconEdit />
-                      </button>
-
-                      <button
-                        type="button"
-                        title="Supprimer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteClient(c);
-                        }}
-                        className="icon-btn-red"
-                      >
-                        <IconTrash />
-                      </button>
-                    </div>
-
-                    {/* Note sous les boutons, à droite */}
-                    {c.notes ? (
-                      <div className="mt-2 text-[11px] text-gray-500 italic text-right">
-                        {notePreview(c.notes)}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* Infos contact */}
-                {(c.club || c.phone || c.email) ? (
-                  <div className="mt-3 space-y-1 text-xs text-gray-600">
-                    {c.club ? (
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-blue-600 shrink-0">🛡️</span>
-                        <span className="truncate">{c.club}</span>
-                      </div>
-                    ) : null}
-
-                    {c.phone ? (
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="shrink-0">📞</span>
-                        <span className="truncate">{c.phone}</span>
-                      </div>
-                    ) : null}
-
-                    {c.email ? (
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="shrink-0">@</span>
-                        <span className="truncate">{c.email}</span>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            </div>
+            <ClientCard c={c}
+              onSelect={c => { setSelected(c); setNotesDraft(c.notes ?? ""); }}
+              onEdit={fillFormFromClient}
+              onDelete={onDeleteClient}
+              notePreview={notePreview}
+            />
           </li>
         ))}
       </ul>
-
       {filteredClients.length > visibleCount && (
         <div className="mt-4 flex justify-center">
           <button
             type="button"
             className="px-4 h-10 rounded-xl border bg-white hover:bg-gray-50 text-sm"
-            onClick={() =>
-              setVisibleCount((v) => Math.min(v + STEP, filteredClients.length))
-            }
+            onClick={() => setVisibleCount((v) => Math.min(v + STEP, filteredClients.length))}
           >
             Charger plus ({visibleCount}/{filteredClients.length})
           </button>
@@ -673,6 +668,82 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
 }
 
 /* ===== UI helpers ===== */
+function ClientCard({ c, onSelect, onEdit, onDelete, notePreview }) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(c)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(c); }
+      }}
+      className="flex w-full rounded-2xl border border-gray-200 bg-white shadow-sm hover:shadow-md hover:border-gray-300 hover:-translate-y-[1px] transition will-change-transform cursor-pointer overflow-hidden"
+    >
+      <div className="w-1.5 bg-[#E10600]" />
+      <div className="flex-1 p-4 min-w-0">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="font-semibold text-brand-dark truncate">
+              {[c.prenom, c.nom].filter(Boolean).join(" ")}
+            </div>
+            <div className="mt-1 flex flex-wrap gap-2 text-xs">
+              <span className="px-2.5 py-1 rounded-full border bg-gray-50 font-medium text-gray-800">
+                {c.cordage || "—"}
+              </span>
+              {c.tension ? (
+                <span className="px-2.5 py-1 rounded-full border border-red-200 bg-red-50 text-red-700 font-semibold">
+                  {c.tension}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="flex items-center justify-end gap-1">
+              <button type="button" title="Modifier"
+                onClick={(e) => { e.stopPropagation(); onEdit(c); }}
+                className="icon-btn">
+                <IconEdit />
+              </button>
+              <button type="button" title="Supprimer"
+                onClick={(e) => { e.stopPropagation(); onDelete(c); }}
+                className="icon-btn-red">
+                <IconTrash />
+              </button>
+            </div>
+            {c.notes ? (
+              <div className="mt-2 text-[11px] text-gray-500 italic text-right">
+                {notePreview(c.notes)}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        {(c.club || c.phone || c.email) ? (
+          <div className="mt-3 space-y-1 text-xs text-gray-600">
+            {c.club ? (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-blue-600 shrink-0">🛡️</span>
+                <span className="truncate">{c.club}</span>
+              </div>
+            ) : null}
+            {c.phone ? (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="shrink-0">📞</span>
+                <span className="truncate">{c.phone}</span>
+              </div>
+            ) : null}
+            {c.email ? (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="shrink-0">@</span>
+                <span className="truncate">{c.email}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, children, required }) {
   return (
     <label className="block">

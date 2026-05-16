@@ -30,6 +30,7 @@ export function useTournoiRackets(tournoiName) {
           offert, fourni, contacted_at,
           gain_cents, gain_frozen_at,
           raquette,
+          client_nom, client_prenom,
           client:clients(id, nom, prenom, phone),
           cordeur:cordeur(cordeur),
           cordage:cordages(cordage, is_base),
@@ -232,9 +233,11 @@ const exportAllToSuivi = useCallback(async (opts = {}) => {
 
   // 1) construit les payloads + mémorise le tarif voulu par ligne
   const payloads = toExport.map((r) => {
-    const clientName = r?.client
-      ? `${r.client.nom || ""} ${r.client.prenom || ""}`.trim() || null
-      : null;
+    const clientName = (
+      r?.client
+        ? `${r.client.nom || ""} ${r.client.prenom || ""}`.trim()
+        : `${r.client_nom || ""} ${r.client_prenom || ""}`.trim()
+    ) || null;
 
     const isOffert = r.offert === true || /offert/i.test(String(r.reglement_mode || ""));
     const reglementModeSuivi = isOffert ? "Offert" : canonPayModeForSuivi(r.reglement_mode);
@@ -245,7 +248,7 @@ const exportAllToSuivi = useCallback(async (opts = {}) => {
     return {
       client_id: r.client_id || null,
       client_name: clientName,
-      client_phone: r.client?.phone || null,
+      client_phone: r.client?.phone || r.client_phone || null,
       cordage_id: r.cordage_id || null,
       note: r.cordage_text
         ? `Cordage fourni : ${r.cordage_text}${r.notes ? `\n${r.notes}` : ""}`

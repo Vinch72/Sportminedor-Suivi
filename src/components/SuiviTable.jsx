@@ -272,10 +272,11 @@ export default function SuiviTable({ onEdit }) {
     }).format(n);
   };  
 
-  const fullNameById = (id) => {
-    const c = clientsMap[id];
-    if (!c) return id || "—";
-    return [c.prenom, c.nom].filter(Boolean).join(" ");
+  const clientDisplayName = (row) => {
+    const c = clientsMap[row?.client_id];
+    if (c) return [c.prenom, c.nom].filter(Boolean).join(" ");
+    const snap = [row?.client_prenom, row?.client_nom].filter(Boolean).join(" ").trim();
+    return snap || row?.client_name || "—";
   };
   const clubLabel = (id) => clubsMap[id]?.clubs ?? id ?? "—";
   const cordageLabel = (id) => cordagesMap[id]?.cordage ?? id ?? "—";
@@ -388,7 +389,7 @@ export default function SuiviTable({ onEdit }) {
 </Td>
 
                   {/* 3. Client */}
-                  <Td>{fullNameById(r.client_id)}</Td>
+                  <Td>{clientDisplayName(r)}</Td>
 
                   {/* 4. Raquette */}
                   <Td className="hidden md:table-cell">{r.raquette ?? r.Raquette ?? "—"}</Td>
@@ -469,7 +470,7 @@ export default function SuiviTable({ onEdit }) {
         <Modal onClose={() => setSelected(null)} title="Détail du suivi">
           <DetailRow label="Date" value={fmtDate(selected.date)} />
           <DetailRow label="Statut" value={selected.statut_id ?? "—"} />
-          <DetailRow label="Client" value={fullNameById(selected.client_id)} />
+          <DetailRow label="Client" value={clientDisplayName(selected)} />
           <DetailRow label="Club" value={clubLabel(selected.club_id)} />
           <DetailRow label="Cordage" value={cordageLabel(selected.cordage_id)} />
           <DetailRow label="Cordeur" value={cordeurLabel(selected.cordeur_id)} />
