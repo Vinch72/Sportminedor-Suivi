@@ -22,7 +22,9 @@ import Clubs from "./pages/Clubs";
 import Stats from "./pages/Stats";
 import TournoisPage from "./pages/TournoisPage";
 import Donnees from "./pages/Donnees";
-import TournoiPublic from "./pages/TournoiPublic";
+import TournoiPublic    from "./pages/TournoiPublic";
+import PartenariatPage  from "./pages/PartenariatPage";
+import PartnerPortalPage from "./pages/PartnerPortalPage";
 
 import "./index.css";
 import logo from "./assets/sportminedor-logo.png";
@@ -85,7 +87,8 @@ function OverlayModal({ open, title, onClose, children }) {
 function Shell() {
   const location = useLocation();
   const isLoginPage  = location.pathname === "/login";
-  const isPublicPage = location.pathname === "/login" || location.pathname === "/tournoi";
+  const isPortalPage = location.pathname === "/portal";
+  const isPublicPage = location.pathname === "/login" || location.pathname === "/tournoi" || isPortalPage;
 
   const [unlocked, setUnlocked] = useState(isDonneesUnlocked());
   const [addOpen, setAddOpen] = useState(false);
@@ -124,6 +127,10 @@ function Shell() {
         if (alive) setRole("anonymous");
         return;
       }
+      if (user.user_metadata?.role === "partner") {
+        if (alive) setRole("partner");
+        return;
+      }
       const { data: prof } = await supabase
         .from("profiles")
         .select("role")
@@ -144,6 +151,10 @@ function Shell() {
     };
   }, []);
 
+  const isPartner = role === "partner";
+  if (!isLoginPage && isPartner && !isPortalPage) {
+    return <Navigate to="/portal" replace />;
+  }
   if (!isLoginPage && role && isTournamentOnly && !isTournoiPath) {
     return <Navigate to="/tournois" replace />;
   }
@@ -173,8 +184,10 @@ function Shell() {
             <Route path="/stats"    element={<Stats />} />
             <Route path="/donnees"  element={<Donnees />} />
             <Route path="/tournois" element={<TournoisPage />} />
-            <Route path="/clients"  element={<Clients />} />
-            <Route path="/clubs"    element={<Clubs />} />
+            <Route path="/clients"     element={<Clients />} />
+            <Route path="/clubs"       element={<Clubs />} />
+            <Route path="/partenariat" element={<PartenariatPage />} />
+            <Route path="/portal"      element={<PartnerPortalPage />} />
           </Route>
         </Routes>
 

@@ -55,6 +55,10 @@ function SidebarContent({ isTournamentOnly, unlocked, onAddClick, onNavigate, on
               <span aria-hidden>🛡️</span>
               <span>Clubs</span>
             </NavLink>
+            <NavLink to="/partenariat" className={linkCls} onClick={onNavigate}>
+              <span aria-hidden>🤝</span>
+              <span>Partenariat</span>
+            </NavLink>
           </>
         )}
         <NavLink to="/tournois" className={linkCls} onClick={onNavigate}>
