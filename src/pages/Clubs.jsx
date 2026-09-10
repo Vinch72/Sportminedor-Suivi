@@ -50,16 +50,7 @@ function IconRacketShuttle(props){
   );
 }
 
-/* ===== Helpers saison ===== */
-function getSeasonBounds(today = new Date()) {
-  const y = today.getFullYear();
-  const m = today.getMonth(); // 0=janv, 8=sept
-  const startYear = m >= 8 ? y : y - 1;
-  const start = new Date(startYear, 8, 1); // 1 sept
-  const end   = new Date(startYear + 1, 7, 31, 23, 59, 59, 999); // 31 août inclus
-  const toISO = (d) => d.toISOString().slice(0, 10);
-  return { startISO: toISO(start), endISO: toISO(end) };
-}
+/* ===== Helpers ===== */
 
 export default function Clubs() {
   // Modale suppression club
@@ -107,8 +98,6 @@ function fileToDataUrl(file) {
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
 
-  // saison bounds
-  const { startISO: seasonStart, endISO: seasonEnd } = useMemo(() => getSeasonBounds(new Date()), []);
 
   // alert badge per club (multiples of 20)
   const [alerts, setAlerts] = useState({}); // { [clubName]: number }
@@ -310,7 +299,7 @@ return;
     }
   }  
 
-  // === Compteurs saison pour un club (total/base/spec) ===
+  // === Compteurs globaux pour un club (total/base/spec, toutes saisons confondues) ===
   const baseCordages = useMemo(
     () => cordages.filter(c => !!c.is_base).map(c => c.cordage),
     [cordages]
@@ -320,22 +309,18 @@ return;
     [cordages]
   );
 
-  async function fetchClubSeasonStats(clubName) {
+  async function fetchClubStats(clubName) {
     // total
     const totalQ = supabase
       .from("suivi")
       .select("id", { count: "exact", head: true })
-      .eq("club_id", clubName)
-      .gte("date", seasonStart)
-      .lte("date", seasonEnd);
+      .eq("club_id", clubName);
 
     // base
     const baseQ = supabase
   .from("suivi")
   .select("id", { count: "exact", head: true })
   .eq("club_id", clubName)
-  .gte("date", seasonStart)
-  .lte("date", seasonEnd)
   .eq("bobine_used", "base");
 
     // spécifique
@@ -343,8 +328,6 @@ return;
   .from("suivi")
   .select("id", { count: "exact", head: true })
   .eq("club_id", clubName)
-  .gte("date", seasonStart)
-  .lte("date", seasonEnd)
   .eq("bobine_used", "specific");
 
     const [t, b, s] = await Promise.all([totalQ, baseQ, specQ]);
@@ -363,7 +346,7 @@ return;
     const entries = await Promise.all(
       clubs.map(async (c) => {
         try {
-          const st = await fetchClubSeasonStats(c.clubs);
+          const st = await fetchClubStats(c.clubs);
           const pBase = Math.floor((st.base ?? 0) / 20);
           const pSpec = Math.floor((st.spec ?? 0) / 20);
   
@@ -389,7 +372,7 @@ return;
     if (!clubs.length || !cordages.length) return;
     refreshAlerts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clubs, cordages, seasonStart, seasonEnd]);
+  }, [clubs, cordages]);
 
   // recalculer les alertes quand le suivi change (création / update)
 useEffect(() => {
@@ -410,7 +393,7 @@ useEffect(() => {
       if (!selected) return;
       setStats(s => ({ ...s, loading: true, error: "" }));
       try {
-        const st = await fetchClubSeasonStats(selected.clubs);
+        const st = await fetchClubStats(selected.clubs);
         if (alive) setStats({ ...st, loading: false, error: "" });
       } catch (e) {
         if (alive) setStats({ total: 0, base: 0, spec: 0, loading: false, error: e.message || "Erreur stats" });
@@ -418,7 +401,7 @@ useEffect(() => {
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, seasonStart, seasonEnd, baseCordages.join("|"), specCordages.join("|")]);
+  }, [selected, baseCordages.join("|"), specCordages.join("|")]);
 
   const { pendingBase, pendingSpec } = useMemo(() => {
     if (!selected) return { pendingBase: 0, pendingSpec: 0 };
@@ -782,7 +765,7 @@ async function openBobineLot(type, batchIndex) {
           <div className="mt-3 p-3 border rounded-lg bg-gray-50">
             <div className="flex items-center gap-2">
   <span>🏸</span>
-  <div>Raquettes cordées (saison)</div>
+  <div>Raquettes cordées (comptage global, toutes saisons confondues)</div>
 </div>
 
 <div className="mt-4 p-3 border rounded-lg bg-white">
