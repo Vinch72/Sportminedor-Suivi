@@ -172,16 +172,28 @@ export default function Cordages() {
     const target = deleteDialog;
     if (!target) return;
     const { error } = await supabase.from("cordages").delete().eq("cordage", target.cordage);
-    setDeleteDialog(null);
     if (error) {
-      const msg = error.code === "23503"
-        ? "Ce cordage est utilisé dans le suivi : suppression impossible. Tu peux le renommer."
-        : error.message;
-      showToast("Suppression impossible", msg, "warning");
+      // Déjà utilisé dans le suivi → proposer un cordage de remplacement
+      if (error.code === "23503") { setDeleteDialog({ ...target, used: true, into: "" }); return; }
+      setDeleteDialog(null);
+      showToast("Suppression impossible", error.message, "warning");
       return;
     }
+    setDeleteDialog(null);
     setCordages(prev => prev.filter(x => x.cordage !== target.cordage));
     showToast("🗑️ Suppression", "Cordage supprimé.");
+  }
+
+  async function replaceAndDelete() {
+    const target = deleteDialog;
+    if (!target?.into) return;
+    setSaving(true);
+    const { error } = await supabase.rpc("merge_cordage", { p_old: target.cordage, p_into: target.into });
+    setSaving(false);
+    if (error) { showToast("Remplacement impossible", error.message, "warning"); return; }
+    setDeleteDialog(null);
+    setCordages(prev => prev.filter(x => x.cordage !== target.cordage));
+    showToast("✅ Remplacé", `« ${target.cordage} » remplacé par « ${target.into} » partout, puis supprimé.`);
   }
 
   const filtered = useMemo(() => {
@@ -382,13 +394,37 @@ export default function Cordages() {
       {/* Confirmation suppression */}
       {deleteDialog && (
         <Modal onClose={() => setDeleteDialog(null)} title="Supprimer ce cordage ?" subtitle={[deleteDialog.marque, deleteDialog.cordage].filter(Boolean).join(" · ")}>
-          <div className="p-5">
-            <div className="p-3 rounded-xl text-sm bg-amber-50 border border-amber-200 text-amber-800">⚠️ Action <b>définitive</b>.</div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button className="px-4 h-10 rounded-xl text-sm border border-gray-200 text-gray-600" onClick={() => setDeleteDialog(null)}>Annuler</button>
-              <button className="px-4 h-10 rounded-xl text-sm font-bold text-white bg-red-600" onClick={reallyDelete}>Supprimer</button>
+          {!deleteDialog.used ? (
+            <div className="p-5">
+              <div className="p-3 rounded-xl text-sm bg-amber-50 border border-amber-200 text-amber-800">⚠️ Action <b>définitive</b>.</div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button className="px-4 h-10 rounded-xl text-sm border border-gray-200 text-gray-600" onClick={() => setDeleteDialog(null)}>Annuler</button>
+                <button className="px-4 h-10 rounded-xl text-sm font-bold text-white bg-red-600" onClick={reallyDelete}>Supprimer</button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-5 space-y-3">
+              <div className="p-3 rounded-xl text-sm bg-amber-50 border border-amber-200 text-amber-800">
+                Ce cordage est utilisé dans le suivi. Choisis par quel cordage le <b>remplacer partout</b> (suivi, tournois, fiches clients, raquettes) avant de le supprimer.
+              </div>
+              <FormField label="Remplacer par">
+                <select className="input-field bg-white" value={deleteDialog.into}
+                  onChange={e => setDeleteDialog(d => ({ ...d, into: e.target.value }))}>
+                  <option value="">— Choisir un cordage —</option>
+                  {cordages.filter(x => x.cordage !== deleteDialog.cordage).map(x => (
+                    <option key={x.cordage} value={x.cordage}>{[x.marque, x.cordage].filter(Boolean).join(" · ")}</option>
+                  ))}
+                </select>
+              </FormField>
+              <div className="flex justify-end gap-2">
+                <button className="px-4 h-10 rounded-xl text-sm border border-gray-200 text-gray-600" onClick={() => setDeleteDialog(null)}>Annuler</button>
+                <button className="px-4 h-10 rounded-xl text-sm font-bold text-white bg-red-600 disabled:opacity-40"
+                  disabled={!deleteDialog.into || saving} onClick={replaceAndDelete}>
+                  {saving ? "…" : "Remplacer et supprimer"}
+                </button>
+              </div>
+            </div>
+          )}
         </Modal>
       )}
 
