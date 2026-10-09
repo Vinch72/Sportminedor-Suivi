@@ -7,6 +7,7 @@ import {
 } from "recharts";
 import MonthlyRevenueChart from "../components/stats/MonthlyRevenueChart.jsx";
 import { computeGainCordeur } from "../utils/computeGainCordeur";
+import { withCordageSnapshot } from "../utils/cordages";
 
 /* ─────────────────────────────────────────────
    HELPERS (identiques à Stats.jsx original)
@@ -44,7 +45,7 @@ const canon = (s)=>(s||"").toString().normalize("NFD").replace(/\p{Diacritic}/gu
 const cordageKey = (s)=>{ const c=canon(s); if(c.includes("POSE")) return "POSE"; const m=c.match(/(BG80POWER|BG80|BG65|BG66|EXBOLT63|EXBOLT65|EXBOLT68|NANOGY95|NANOGY98|NANOGY99|AEROBITE|SKYARC)/); return m?m[1]:c; };
 const isMagasin = (v)=> canon(v)==="MAGASIN";
 function canonMode(m){ if(!m) return null; const s=String(m).normalize("NFD").replace(/\p{Diacritic}/gu,"").toLowerCase(); if(s.includes("cb")||s.includes("carte")) return "CB"; if(s.startsWith("esp")) return "Especes"; if(s.startsWith("cheq")) return "Cheque"; if(s.startsWith("vir")) return "Virement"; if(s.includes("offert")||s.includes("gratuit")) return "Offert"; return m; }
-function gainMagasinEurForSuiviRow(r,mapCordageGainMagasin){ const modeCanon=canonMode(r.reglement_mode); if(modeCanon==="Offert") return 5.0; const tarif=parseMoney(r.tarif); if(r.fourni&&Math.abs(tarif-12)<0.01) return 5.0; if(r.bobine_used==="base"&&Math.abs(tarif-12)<0.01) return 5.0; if(r.bobine_used==="specific"&&Math.abs(tarif-14)<0.01) return 5.8; const cordCanon=canon(r.cordage_id); if(cordCanon.includes("POSE")){ if(Math.abs(tarif-14)<0.01) return 5.83; if(Math.abs(tarif-12)<0.01) return 5.0; return DEFAULT_GAIN_EUR; } const key=cordageKey(r.cordage_id); return mapCordageGainMagasin.get(key)??DEFAULT_GAIN_EUR; }
+function gainMagasinEurForSuiviRow(r,mapCordageGainMagasin){ const modeCanon=canonMode(r.reglement_mode); if(modeCanon==="Offert") return 5.0; const tarif=parseMoney(r.tarif); if(r.fourni&&Math.abs(tarif-12)<0.01) return 5.0; if(r.bobine_used==="base"&&Math.abs(tarif-12)<0.01) return 5.0; if(r.bobine_used==="specific"&&Math.abs(tarif-14)<0.01) return 5.8; const cordCanon=canon(r.cordage_id); if(cordCanon.includes("POSE")){ if(Math.abs(tarif-14)<0.01) return 5.83; if(Math.abs(tarif-12)<0.01) return 5.0; return DEFAULT_GAIN_EUR; } if(r.gain_magasin_cordage_cents!=null) return Number(r.gain_magasin_cordage_cents)/100; const key=cordageKey(r.cordage_id); return mapCordageGainMagasin.get(key)??DEFAULT_GAIN_EUR; }
 function marginForCordageRow(c){ const cents=c.gain_cents; if(cents!=null) return Number(cents)/100; const eur=c.marge_eur; if(eur!=null) return Number(eur); return null; }
 
 /* ─────────────────────────────────────────────
@@ -243,13 +244,13 @@ export default function Stats() {
           supabase.from("clubs").select("*"),
           supabase.from("cordages").select("*"),
           supabase.from("tournois").select("tournoi, start_date, end_date").order("start_date",{ascending:false}),
-          supabase.from("tournoi_raquettes").select(`id, tournoi, date, statut_id, club_id, cordeur_id, cordage_id, offert, fourni, gain_cents, cordeur:cordeur(cordeur), cordage:cordages(cordage, is_base)`).gte("date",startISO).lte("date",endISO).order("date",{ascending:false}).order("id",{ascending:false}),
+          supabase.from("tournoi_raquettes").select(`id, tournoi, date, statut_id, club_id, cordeur_id, cordage_id, offert, fourni, gain_cents, cordage_is_base, cordeur:cordeur(cordeur)`).gte("date",startISO).lte("date",endISO).order("date",{ascending:false}).order("id",{ascending:false}),
           supabase.from("tarif_matrix").select("*"),
         ]);
         const firstErr = [s,lc,lclubs,lcordages,tmeta,traq,tm].find(r=>r.error)?.error;
         if (firstErr) throw firstErr;
         setRows(s.data||[]); setCordeurs(lc.data||[]); setClubs(lclubs.data||[]); setCordages(lcordages.data||[]);
-        setTournois(tmeta.data||[]); setTournoiRows(traq.data||[]); setTarifMatrix(tm.data||[]);
+        setTournois(tmeta.data||[]); setTournoiRows((traq.data||[]).map(withCordageSnapshot)); setTarifMatrix(tm.data||[]);
         const latest = (tmeta.data||[])[0]?.tournoi;
         if (latest) setOpenTournois(new Set([latest]));
       } catch(e) { console.error(e); setErr(e.message||"Erreur inconnue"); }

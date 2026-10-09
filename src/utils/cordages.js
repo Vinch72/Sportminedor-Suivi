@@ -9,3 +9,10 @@ export const CORDAGE_INFO_FIELDS = [
 
 export const hasCordageInfo = (c) =>
   !!c && !!(c.info_controle || c.info_puissance || c.info_durabilite || c.info_note);
+
+// Raquette de tournoi : objet "cordage" reconstruit depuis les colonnes figées
+// de la ligne (nom + basique/spécifique), indépendant de la table cordages
+export const withCordageSnapshot = (r) => ({
+  ...r,
+  cordage: r.cordage_id ? { cordage: r.cordage_id, is_base: r.cordage_is_base } : null,
+});

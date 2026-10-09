@@ -573,7 +573,7 @@ useEffect(() => {
   function askDelete(row) {
     const title =
       `${fmtDate(row.date)} • ${clientLabel(row, mapClient)} • ` +
-      `${row.raquette || (mapCordage.get(row.cordage_id) || "—")}`;
+      `${row.raquette || (mapCordage.get(row.cordage_id) || row.cordage_id || "—")}`;
     setDeleteDialog({ id: row.id, title });
   }
 

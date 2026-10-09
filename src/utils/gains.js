@@ -32,7 +32,8 @@ export function computeGainMagasinCents(row, cordagesById) {
   if (bobine === "BASE" && tarifCents === 1200) return 500;
   if (bobine === "SPECIFIC" && tarifCents === 1400) return 580;
 
-  // Fallback table cordages
+  // Gain du cordage figé sur la ligne à la saisie ; sinon table cordages (anciennes lignes)
+  if (row?.gain_magasin_cordage_cents != null) return Number(row.gain_magasin_cordage_cents) || 0;
   const cordage = row?.cordage_id;
   const ref = cordagesById?.[cordage];
   return Number(ref?.gain_magasin_cents ?? 0) || 0;

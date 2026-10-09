@@ -1,6 +1,7 @@
 // src/hooks/useTournoiRackets.js
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
+import { withCordageSnapshot } from "../utils/cordages";
 
 /**
  * Gestion des raquettes d'un tournoi
@@ -33,14 +34,15 @@ export function useTournoiRackets(tournoiName) {
           client_nom, client_prenom,
           client:clients(id, nom, prenom, phone),
           cordeur:cordeur(cordeur),
-          cordage:cordages(cordage, is_base),
+          cordage_is_base,
           notes
         `)
         .eq("tournoi", tournoiName)
         .order("created_at", { ascending: false })
         .order("id", { ascending: false });
       if (error) throw error;
-      setRows(data || []);
+      // Cordage figé sur la ligne (nom + basique/spécifique) : indépendant de la table cordages
+      setRows((data || []).map(withCordageSnapshot));
     } finally {
       setLoading(false);
     }
