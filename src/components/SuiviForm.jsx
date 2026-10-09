@@ -524,188 +524,193 @@ onDone?.({ type: "created", count: data.length });
 
   if (loading) return <div className="bg-white rounded-xl shadow-card p-6">Chargement…</div>;
 
+  const inputCls = "w-full h-10 border border-gray-200 rounded-xl px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-300 transition";
+
   return (
-<div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       {isEdit && (
-  <h3 className="font-semibold mb-4">Modifier une ligne</h3>
-)}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3" style={{ background: "rgba(225,6,0,0.04)" }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: "rgba(225,6,0,0.10)" }}>✏️</div>
+          <div className="font-semibold text-gray-900 text-sm">Modifier une ligne</div>
+        </div>
+      )}
 
-      <form onSubmit={onSubmit} className="space-y-5">
-        {/* Quantité + Date + Statut */}
-        <div className="grid grid-cols-1 gap-4">
-  {!isEdit && (
-    <Field label="Nombre de raquettes">
-      <input type="number" min={1} value={qte} onChange={e=>setQte(e.target.value)} className="w-full border rounded-lg p-2" />
-    </Field>
-  )}
-  <Field label="Date">
-    <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="w-full border rounded-lg p-2" />
-  </Field>
-  <Field label="Statut">
-    <select value={statutId} onChange={e=>setStatutId(e.target.value)} className="w-full border rounded-lg p-2">
-      {statuts.map(s=> <option key={s.statut_id} value={s.statut_id}>{s.statut_id}</option>)}
-    </select>
-  </Field>
-</div>
+      <form onSubmit={onSubmit} className="divide-y divide-gray-100">
 
-        {/* Client + Club + Lieu */}
-        <div className="grid grid-cols-1 gap-4">
-  <Field label="Client">
-    <div className="flex items-center gap-2">
-      <div className="flex-1">
-        <SearchSelect
-          items={clients}
-          value={clientId}
-          onChange={setClientId}
-          getValue={c => c.id}
-          getLabel={c => [formatPrenom(c.prenom), formatNom(c.nom)].filter(Boolean).join(" ") || c.id}
-          placeholder="Rechercher un client…"
-        />
-      </div>
-      <button
-        type="button"
-        className="text-sm px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
-        title="Appliquer les préférences du client (club/tension/cordage)"
-        onClick={() => {
-          const c = clients.find(x => x.id === clientId);
-          applyClientPrefs(c, { overwrite: true });
-        }}
-        disabled={!clientId}
-      >
-        Appliquer
-      </button>
-    </div>
-  </Field>
+        {/* ── Général ── */}
+        <div className="px-5 py-4 space-y-3">
+          <SectionTitle>Général</SectionTitle>
+          <div className={`grid gap-3 grid-cols-1 ${isEdit ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+            {!isEdit && (
+              <Field label="Nb raquettes">
+                <input type="number" min={1} value={qte} onChange={e=>setQte(e.target.value)} className={inputCls} />
+              </Field>
+            )}
+            <Field label="Date">
+              <input type="date" value={date} onChange={e=>setDate(e.target.value)} className={inputCls} />
+            </Field>
+            <Field label="Statut">
+              <select value={statutId} onChange={e=>setStatutId(e.target.value)} className={inputCls}>
+                {statuts.map(s=> <option key={s.statut_id} value={s.statut_id}>{s.statut_id}</option>)}
+              </select>
+            </Field>
+          </div>
+        </div>
 
-  <Field label="Téléphone (auto)">
-    <input
-      type="text"
-      value={phone}
-      onChange={(e) => setPhone(formatPhone(e.target.value))}
-      className="w-full border rounded-lg p-2"
-      placeholder="ex: +33 6 12 34 56 78"
-    />
-  </Field>
+        {/* ── Client ── */}
+        <div className="px-5 py-4 space-y-3">
+          <SectionTitle>Client</SectionTitle>
+          <Field label="Client *">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <SearchSelect
+                  items={clients}
+                  value={clientId}
+                  onChange={setClientId}
+                  getValue={c => c.id}
+                  getLabel={c => [formatPrenom(c.prenom), formatNom(c.nom)].filter(Boolean).join(" ") || c.id}
+                  placeholder="Rechercher un client…"
+                />
+              </div>
+              <button
+                type="button"
+                className="h-10 px-3 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 shrink-0"
+                title="Appliquer les préférences du client (club/tension/cordage)"
+                onClick={() => {
+                  const c = clients.find(x => x.id === clientId);
+                  applyClientPrefs(c, { overwrite: true });
+                }}
+                disabled={!clientId}
+              >
+                Appliquer
+              </button>
+            </div>
+          </Field>
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+            <Field label="Téléphone">
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(formatPhone(e.target.value))}
+                className={inputCls}
+                placeholder="+33 6 12 34 56 78"
+              />
+            </Field>
+            <Field label="Club *">
+              <SearchSelect
+                items={clubs}
+                value={clubId}
+                onChange={setClubId}
+                getValue={c => c.clubs}
+                getLabel={c => c.clubs}
+                placeholder="Rechercher un club…"
+              />
+            </Field>
+          </div>
+        </div>
 
-  <Field label="Club">
-    <SearchSelect
-      items={clubs}
-      value={clubId}
-      onChange={setClubId}
-      getValue={c => c.clubs}
-      getLabel={c => c.clubs}
-      placeholder="Rechercher un club…"
-    />
-  </Field>
+        {/* ── Raquette & Cordage ── */}
+        <div className="px-5 py-4 space-y-3">
+          <SectionTitle>Raquette & Cordage</SectionTitle>
+          <Field label="Raquette">
+            <input type="text" value={raquette} onChange={e=>onRaquetteTextChange(e.target.value)} className={inputCls} placeholder="ex: ASTROX 88 S PRO" />
+            <RaquetteChips raquettes={clientRaquettes} selectedId={raquetteId} onPick={pickRaquette} />
+          </Field>
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+            <Field label="Cordage *">
+              <SearchSelect
+                items={cordages}
+                value={cordageId}
+                onChange={setCordageId}
+                getValue={c => c.cordage}
+                getLabel={c => c.cordage}
+                getGroup={c => c.marque || "Autres"}
+                placeholder="Rechercher un cordage…"
+              />
+            </Field>
+            <Field label="Tension">
+              <input type="text" value={tension} onChange={e=>setTension(e.target.value)} className={inputCls} placeholder="ex: 11-11,5" />
+            </Field>
+            <Field label="Couleur">
+              <input type="text" value={couleur} onChange={e=>setCouleur(e.target.value)} className={inputCls} placeholder="ex: noir, rouge…" />
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer text-gray-600">
+            <input type="checkbox" checked={savePrefs} onChange={(e)=>setSavePrefs(e.target.checked)} className="accent-[#E10600]" />
+            <span>Mémoriser cordage & tension pour les prochaines fois (fiche client et raquette)</span>
+          </label>
+        </div>
 
-  <Field label="Lieu de cordage (optionnel)">
-    <SearchSelect
-      items={tournois}
-      value={lieu}
-      onChange={setLieu}
-      getValue={t => t.tournoi}
-      getLabel={t => t.tournoi}
-      placeholder="Rechercher un lieu…"
-      allowEmpty
-    />
-  </Field>
+        {/* ── Options ── */}
+        <div className="px-5 py-4 space-y-3">
+          <SectionTitle>Options</SectionTitle>
+          <div className="grid gap-2 grid-cols-3">
+            <ToggleChip active={fourni}  onClick={() => setFourni(v => !v)}  label={fourni  ? "Fourni ✓"  : "Cordage fourni"} />
+            <ToggleChip active={offert}  onClick={() => setOffert(v => !v)}  label={offert  ? "Offert ✓"  : "Offert"} />
+            <ToggleChip active={express} onClick={() => setExpress(v => !v)} label={express ? "Express ✓" : `Express +${(expressCents / 100).toLocaleString("fr-FR")} €`} />
+          </div>
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+            <Field label="Cordeur">
+              <select value={cordeurId} onChange={e=>setCordeurId(e.target.value)} className={inputCls}>
+                <option value="">— choisir —</option>
+                {cordeurs.map(c=> <option key={c.cordeur} value={c.cordeur}>{c.cordeur}</option>)}
+              </select>
+            </Field>
+            <Field label="Lieu de cordage (optionnel)">
+              <SearchSelect
+                items={tournois}
+                value={lieu}
+                onChange={setLieu}
+                getValue={t => t.tournoi}
+                getLabel={t => t.tournoi}
+                placeholder="Magasin, tournoi…"
+                allowEmpty
+              />
+            </Field>
+          </div>
+        </div>
 
-        {/* Cordage + Couleur + Tension */}
-        <div className="grid grid-cols-1 gap-4">
-  <Field label="Cordage">
-    <SearchSelect
-      items={cordages}
-      value={cordageId}
-      onChange={setCordageId}
-      getValue={c => c.cordage}
-      getLabel={c => c.cordage}
-      getGroup={c => c.marque || "Autres"}
-      placeholder="Rechercher un cordage…"
-    />
-  </Field>
+        {/* ── Notes & Tarif ── */}
+        <div className="px-5 py-4 space-y-3">
+          <SectionTitle>Notes & Tarif</SectionTitle>
+          <textarea
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-300 transition resize-none"
+            rows={2}
+            placeholder="Ex: rendre la raquette sur le tournoi de Pérols"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <div className="rounded-xl px-4 h-12 border flex items-center justify-between"
+            style={{ background: "rgba(225,6,0,0.04)", borderColor: "rgba(225,6,0,0.2)" }}>
+            <span className="text-sm text-gray-500">Tarif calculé</span>
+            <span className={`text-xl font-bold ${tarif == null ? "text-gray-300" : ""}`} style={tarif != null ? { color: "#E10600" } : {}}>
+              {tarif == null ? "—" : `${tarif} €`}
+            </span>
+          </div>
+        </div>
 
-  <Field label="Tension">
-    <input type="text" value={tension} onChange={e=>setTension(e.target.value)} className="w-full border rounded-lg p-2" placeholder="ex: 11-11,5" />
-  </Field>
-
-  <Field label="Couleur">
-    <input type="text" value={couleur} onChange={e=>setCouleur(e.target.value)} className="w-full border rounded-lg p-2" placeholder="ex: noir, rouge…" />
-  </Field>
-
-  <label className="flex items-center gap-2 text-sm mt-6">
-    <input type="checkbox" checked={savePrefs} onChange={(e)=>setSavePrefs(e.target.checked)} />
-    <span>Enregistrer pour les futurs cordages (met à jour la fiche client)</span>
-  </label>
-</div>
-
-        {/* Raquette + Cordeur + Oui/Non */}
-<div className="grid grid-cols-1 gap-4">
-  <Field label="Modèle de raquette">
-    <input type="text" value={raquette} onChange={e=>onRaquetteTextChange(e.target.value)} className="w-full border rounded-lg p-2" placeholder="ex: Astrox 88 S Pro" />
-    <RaquetteChips raquettes={clientRaquettes} selectedId={raquetteId} onPick={pickRaquette} />
-  </Field>
-
-  <Field label="Cordeur">
-    <select value={cordeurId} onChange={e=>setCordeurId(e.target.value)} className="w-full border rounded-lg p-2">
-      <option value="">— choisir —</option>
-      {cordeurs.map(c=> <option key={c.cordeur} value={c.cordeur}>{c.cordeur}</option>)}
-    </select>
-  </Field>
-
-  <Field label="Cordage fourni">
-    <Toggle checked={fourni} onChange={setFourni} />
-  </Field>
-
-  <Field label="Prestation offerte">
-    <Toggle checked={offert} onChange={setOffert} />
-  </Field>
-
- <Field label="Express (+X€)">
-    <Toggle checked={express} onChange={setExpress} />
-  </Field>
-
-</div>
-
-        {/* Note */}
-<div className="grid grid-cols-1 gap-4">
-  <Field label="Note (optionnel)">
-    <textarea
-      className="w-full border rounded-lg p-2"
-      rows={2}
-      placeholder="Ex: rendre la raquette sur le tournoi de Pérols"
-      value={note}
-      onChange={(e) => setNote(e.target.value)}
-    />
-  </Field>
-
-  <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3 border">
-    <div className="text-gray-600">Tarif calculé</div>
-    <div className="text-xl font-semibold">
-      {tarif == null ? "—" : `${tarif} €`}
-    </div>
-  </div>
-</div>
-
-        {err && <p className="text-red-600">{err}</p>}
-        {ok && <p className="text-green-700">{ok}</p>}
-</div>
-        <div className="pt-3 mt-4 flex items-center justify-end gap-2 border-t bg-white">
-          {isEdit && (
+        {/* ── Pied ── */}
+        <div className="px-5 py-4 bg-gray-50 space-y-3">
+          {err && <p className="text-red-600 text-sm bg-red-50 rounded-xl px-3 py-2">{err}</p>}
+          {ok && <p className="text-green-700 text-sm bg-green-50 rounded-xl px-3 py-2">{ok}</p>}
+          <div className="flex items-center justify-end gap-2">
+            {isEdit && (
+              <button
+                type="button"
+                onClick={() => onDone?.({ type: "cancel" })}
+                className="h-10 px-4 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-100 transition"
+              >
+                Annuler
+              </button>
+            )}
             <button
-              type="button"
-              onClick={() => onDone?.({ type: "cancel" })}
-              className="px-4 py-2 rounded-lg border border-gray-300"
+              type="submit"
+              disabled={saving}
+              className="h-10 px-6 rounded-xl text-sm font-semibold text-white bg-brand-red disabled:opacity-50 transition shadow-sm"
             >
-              Annuler
+              {saving ? (isEdit ? "Mise à jour…" : "Enregistrement…") : (isEdit ? "Modifier" : "Ajouter")}
             </button>
-          )}
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-4 py-2 rounded-lg bg-brand-red text-white disabled:opacity-50"
-          >
-            {saving ? (isEdit ? "Mise à jour…" : "Enregistrement…") : (isEdit ? "Modifier" : "Ajouter")}
-          </button>
+          </div>
         </div>
       </form>
       {/* Modale "Choisir le mode de règlement" */}
@@ -752,14 +757,17 @@ function Field({ label, children }) {
     </label>
   );
 }
-function Toggle({ checked, onChange }) {
+function SectionTitle({ children }) {
+  return <div className="inline-block text-xs font-bold text-gray-700 uppercase tracking-wide bg-gray-100 rounded-lg px-2.5 py-1">{children}</div>;
+}
+function ToggleChip({ active, onClick, label }) {
   return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={`w-full h-[38px] rounded-lg border flex items-center justify-center ${checked ? "bg-brand-red text-white" : ""}`}
-    >
-      {checked ? "Oui" : "Non"}
+    <button type="button" onClick={onClick}
+      className="h-10 rounded-xl border text-sm font-medium transition px-2"
+      style={active
+        ? { background: "#E10600", color: "#fff", borderColor: "#E10600" }
+        : { background: "#fff", color: "#374151", borderColor: "#e5e7eb" }}>
+      {label}
     </button>
   );
 }
@@ -815,7 +823,7 @@ function SearchSelect({
   return (
     <div className="relative">
       <input
-        className="w-full border rounded-lg p-2"
+        className="w-full h-10 border border-gray-200 rounded-xl px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-300 transition"
         placeholder={placeholder}
         value={query}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
@@ -827,7 +835,7 @@ function SearchSelect({
       )}
       {open && (
         <div
-          className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow max-h-60 overflow-auto"
+          className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto text-sm"
           onMouseLeave={() => setOpen(false)}
         >
           {filtered.length === 0 ? (
