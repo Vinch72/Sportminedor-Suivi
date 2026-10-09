@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { supabase } from "../utils/supabaseClient";
 import PageHeader from "../components/ui/PageHeader"
 import RaquettesModal from "../components/ClientRaquettes";
+import { fetchAll } from "../utils/fetchAll";
 
 // === Helpers (declare BEFORE component to avoid TDZ) ===
 function normStr(s) {
@@ -127,7 +128,7 @@ export default function Clients() {
       const [clb, crd, cls] = await Promise.all([
         supabase.from("clubs").select("clubs").order("clubs"),
         supabase.from("cordages").select("cordage, marque").order("marque", { nullsFirst: false }).order("cordage"),
-        supabase.from("clients").select("*").order("nom").order("prenom"),
+        fetchAll(() => supabase.from("clients").select("*").order("nom").order("prenom").order("id")),
       ]);
       const firstErr = [clb, crd, cls].find(r => r.error)?.error;
       if (firstErr) throw firstErr;
@@ -172,10 +173,10 @@ export default function Clients() {
   const filteredClients = useMemo(() => {
     const list = clients || [];
     const q = normStr(query);
-  
+
     // Toujours renvoyer une liste triée
     if (!q) return sortByNomPrenom(list);
-  
+
     const out = list.filter((c) => {
       const nom = normStr(c.nom);
       const prenom = normStr(c.prenom);
@@ -194,7 +195,7 @@ export default function Clients() {
         email.includes(q)
       );
     });
-  
+
     return sortByNomPrenom(out);
   }, [clients, query]);
 
@@ -229,7 +230,7 @@ export default function Clients() {
   }, [clients]);
 
   const duplicateCount = duplicateGroups.byPhone.length + duplicateGroups.byName.length;
-  
+
   function resetForm() {
     setEditingId(null);
     setNom(""); setPrenom("");
@@ -306,14 +307,14 @@ export default function Clients() {
   async function reallyDeleteClient() {
     if (!deleteDialog) return setDeleteDialog(null);
     const c = deleteDialog;
-  
+
     // 1) figer le nom dans toutes les lignes de suivi + tournoi_raquettes
     const snapshot = { client_nom: c.nom || null, client_prenom: c.prenom || null };
     await Promise.allSettled([
       supabase.from("suivi").update(snapshot).eq("client_id", c.id),
       supabase.from("tournoi_raquettes").update(snapshot).eq("client_id", c.id),
     ]);
-  
+
     // 2) supprimer la fiche client
     const { error } = await supabase.from("clients").delete().eq("id", c.id);
     if (error) {
@@ -325,12 +326,12 @@ export default function Clients() {
     window.dispatchEvent(new CustomEvent("clients:updated", { detail: { id: c.id }}));
     setDeleteDialog(null);
   }
-  
+
   function onDeleteClient(c) {
     // ouvre la modale "supprimer"
     setDeleteDialog(c);
   }
-  
+
   async function saveNotes() {
     if (!selected) return;
     setSavingNotes(true);

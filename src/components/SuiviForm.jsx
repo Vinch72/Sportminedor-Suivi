@@ -4,6 +4,7 @@ import { supabase } from "../utils/supabaseClient";
 import { toCanonical, normalize } from "../utils/payment";
 import { raquetteLabel, fetchClientRaquettes, resolveRaquette, saveRaquettePrefs as saveRaqPrefs } from "../utils/raquettes";
 import RaquetteChips from "./RaquetteChips";
+import { fetchAll } from "../utils/fetchAll";
 
 /**
  * Props optionnelles pour l'édition :
@@ -44,7 +45,7 @@ function formatPrenom(s) {
     .replace(/(^|\s|-)([a-zàâäéèêëîïôùûüç])/g, (_, sep, letter) => sep + letter.toUpperCase());
 }
 
-export default function SuiviForm({ editingId, initialData, onDone, onTitleChange }) {  
+export default function SuiviForm({ editingId, initialData, onDone, onTitleChange }) {
   const isEdit = !!editingId; // [EDIT]
 
   const [loading, setLoading] = useState(true);
@@ -55,10 +56,10 @@ export default function SuiviForm({ editingId, initialData, onDone, onTitleChang
   // listes
   const [clients, setClients] = useState([]);
   async function reloadClients() {
-    const { data, error } = await supabase
+    const { data, error } = await fetchAll(() => supabase
       .from("clients")
       .select("id, nom, prenom, club, tension, cordage, phone")
-      .order("nom");
+      .order("nom").order("id"));
     if (!error) setClients(data || []);
     return !error;
   }
@@ -112,7 +113,7 @@ useEffect(() => {
     if (overwrite || (!clubId && c.club)) setClubId(c.club || "");
     if (overwrite || (!tension && c.tension)) setTension(c.tension || "");
     if (overwrite || (!cordageId && c.cordage)) setCordageId(c.cordage || "");
-  }  
+  }
 
   // [EDIT] Pré-initialisation si mode édition
   useEffect(() => {
@@ -143,7 +144,7 @@ useEffect(() => {
       setErr(""); setOk("");
       try {
         const [cl, st, cb, co, tn, cr] = await Promise.all([
-          supabase.from("clients").select("id, nom, prenom, club, tension, cordage, phone").order("nom"),
+          fetchAll(() => supabase.from("clients").select("id, nom, prenom, club, tension, cordage, phone").order("nom").order("id")),
           supabase.from("statuts").select("statut_id").order("statut_id"),
           supabase.from("clubs").select("clubs, bobine_base, bobine_specific").order("clubs"),
           supabase.from("cordages").select("cordage, is_base, marque").order("marque", { nullsFirst: false }).order("cordage"),

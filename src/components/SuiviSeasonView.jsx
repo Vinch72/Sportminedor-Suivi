@@ -6,6 +6,7 @@ import SuiviForm from "./SuiviForm";
 import { SuiviFilters } from "../components/SuiviFilters";
 import useIsSmall from "../hooks/useIsSmall"; // < 768px = mobile
 import { computeGainMagasinCents } from "../utils/gains";
+import { fetchAll } from "../utils/fetchAll";
 
 // ===== Helpers =====
 const FR_MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -260,40 +261,40 @@ const [smsTemplate, setSmsTemplate] = useState(() => {
     setLoading(true);
     try {
       // 1) on tente avec created_at
-      let sSuivi = await supabase
+      let sSuivi = await fetchAll(() => supabase
         .from("suivi")
         .select("*")
         .order("created_at", { ascending: false }) // 1) insertion la + récente
         .order("id", { ascending: false })         // 2) sinon id le + grand
-        .order("date", { ascending: false });      // 3) la date vient après
-  
+        .order("date", { ascending: false }));     // 3) la date vient après
+
       // 2) fallback si la colonne n'existe pas
       if (sSuivi.error) {
-        sSuivi = await supabase
+        sSuivi = await fetchAll(() => supabase
           .from("suivi")
-          .select("*")  
+          .select("*")
           .order("id", { ascending: false })
-          .order("date", { ascending: false });
+          .order("date", { ascending: false }));
         if (sSuivi.error) throw sSuivi.error;
       }
-  
-      const [sStatuts, sClients, sCordages, sCordeurs, sClubs, sPay] = await Promise.all([      
+
+      const [sStatuts, sClients, sCordages, sCordeurs, sClubs, sPay] = await Promise.all([
         supabase.from("statuts").select("statut_id"),
-        supabase.from("clients").select("id, nom, prenom"),
+        fetchAll(() => supabase.from("clients").select("id, nom, prenom").order("id")),
         supabase.from("cordages").select("cordage, gain_cents, gain_magasin_cents"),
         supabase.from("cordeur").select("cordeur, remun_magasin").order("cordeur"),
         supabase.from("clubs").select("clubs"),
         supabase.from("payment_modes").select("*").order("sort_order").order("label"),
         supabase.from("express")
       ]);
-  
+
       setRows(sSuivi.data || []);
       if (!sStatuts.error) setStatuts(sStatuts.data || []);
       if (!sClients.error) setClients(sClients.data || []);
       if (!sCordages.error) setCordages(sCordages.data || []);
       if (!sCordeurs.error) setCordeurs(sCordeurs.data || []);
       if (!sClubs.error) setClubs(sClubs.data || []);
-  
+
       const now = new Date();
       const curKey = seasonKeyFromDate(now);
       const mk = monthKey(now);
@@ -315,11 +316,11 @@ const [smsTemplate, setSmsTemplate] = useState(() => {
           emoji: m.emoji || "💶",
         }));
       setPaymentModes(list);
-    }      
+    }
     } finally {
       setLoading(false);
     }
-  }, []);  
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -487,22 +488,22 @@ const indexById = useMemo(() => {
               const ac = a.created_at ? +new Date(a.created_at) : 0;
               const bc = b.created_at ? +new Date(b.created_at) : 0;
               if (ac !== bc) return bc - ac;
-            
+
               // 2) id desc (si pas de created_at fiable)
               const ai = Number.isFinite(Number(a.id)) ? Number(a.id) : 0;
               const bi = Number.isFinite(Number(b.id)) ? Number(b.id) : 0;
               if (ai !== bi) return bi - ai;
-            
+
               // 3) date desc (affichage logique par jour)
               const ad = +new Date(a.date) || 0;
               const bd = +new Date(b.date) || 0;
               if (ad !== bd) return bd - ad;
-            
+
               // 4) filet de sécurité : garder l'ordre serveur (desc)
               const ia = indexById.get(a.id) ?? 0;
               const ib = indexById.get(b.id) ?? 0;
               return ib - ia;
-            });            
+            });
             return { key: k, label: v.label, items };
           })
       })),
@@ -682,11 +683,11 @@ async function markMessageSent(row) {
     const client = clientLabel(r, mapClient);
     const cordeurName = mapCordeur.get(r.cordeur_id) || r.cordeur_id || "—";
     const cordage = mapCordage.get(r.cordage_id) || r.cordage_id || "—";
-  
+
     const pill = (active) =>
       `inline-flex h-8 w-8 items-center justify-center rounded-full border transition
        ${active ? "bg-green-500 text-white border-green-600" : "bg-gray-100 text-gray-500 border-gray-200"}`;
-  
+
     return (
       <div className="bg-white rounded-2xl border shadow-sm p-3 space-y-2 overflow-hidden">
         {/* entête: date + client + statut */}
@@ -741,7 +742,7 @@ async function markMessageSent(row) {
             {r.statut_id || "—"}
           </span>
         </div>
-  
+
         {/* infos techniques */}
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="truncate">
@@ -758,7 +759,7 @@ async function markMessageSent(row) {
             <b>{tarifLabel}</b>
           </div>
         </div>
-  
+
         {/* rangée: pictos + cordeur (sur la même ligne) */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -767,7 +768,7 @@ async function markMessageSent(row) {
             <button type="button" className={pill(flags.msg)}    title="Message envoyé / Non envoyé" onClick={() => toggleMessage(r)}>💬</button>
             <button type="button" className={pill(flags.ret)}    title="Rendu / Non rendu" onClick={() => toggleReturn(r)}>↩️</button>
           </div>
-  
+
           <select
             className="h-8 px-2 rounded-md border text-xs"
             value={String(r.cordeur_id ?? "")}
@@ -780,7 +781,7 @@ async function markMessageSent(row) {
             ))}
           </select>
         </div>
-  
+
         {/* rangée: paiement + tarif (séparée, donc plus de “CB/Offert” qui traîne) */}
         <div className="flex items-center gap-2">
           <select
@@ -799,7 +800,7 @@ async function markMessageSent(row) {
             ))}
           </select>
         </div>
-  
+
         {/* actions */}
         <div className="flex items-center justify-end gap-2">
           <button className="icon-btn" title="Éditer" onClick={() => setEditingRow(r)}><IconEdit /></button>
@@ -807,14 +808,14 @@ async function markMessageSent(row) {
         </div>
       </div>
     );
-  }  
+  }
   function RowDesktop({ r }) {
     const flags = deriveFlags(r);
     const pill = (active) =>
       `inline-flex h-8 w-8 items-center justify-center rounded-full border transition
        ${active ? "bg-green-500 text-white border-green-600" : "bg-gray-100 text-gray-500 border-gray-200"}`;
     const tarifLabel = (() => { const n = parseMoney(r.tarif); return n ? euro(n) : "—"; })();
-  
+
     return (
       <div
         className="grid items-center gap-3 bg-gray-100 rounded-lg shadow-sm border border-transparent hover:bg-white hover:border-[#E10600] hover:shadow transition-colors duration-150 px-3 py-2"
@@ -968,7 +969,7 @@ function ProgressiveMonthList({ items, isSmall, RowMobile, RowDesktop }) {
   );
 }
 
-  // ===== Render =====  
+  // ===== Render =====
   return (
     <div className="space-y-5">
       <SuiviFilters

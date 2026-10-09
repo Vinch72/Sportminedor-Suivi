@@ -5,6 +5,7 @@
   import CenteredModal from "../ui/CenteredModal";
   import RaquetteChips from "../RaquetteChips";
   import { raquetteLabel, fetchClientRaquettes, resolveRaquette, saveRaquettePrefs } from "../../utils/raquettes";
+import { fetchAll } from "../../utils/fetchAll";
 
 function formatNom(s) {
   return (s || "").toUpperCase();
@@ -53,7 +54,7 @@ function formatPrenom(s) {
     useEffect(() => {
     if (!editingId || !initialData) return;
 
-    setCount(1); 
+    setCount(1);
 
     setForm({
       date: (initialData.date || new Date().toISOString().slice(0, 10)).slice(0,10),
@@ -106,7 +107,7 @@ function formatPrenom(s) {
     // ------- Lookups -------
     const loadLookups = async () => {
       const [c, co, s, cr, cl, tc, tm] = await Promise.all([
-        supabase.from("clients").select("id, nom, prenom, tension, cordage, club").order("nom"),
+        fetchAll(() => supabase.from("clients").select("id, nom, prenom, tension, cordage, club").order("nom").order("id")),
         supabase.from("cordages").select("cordage, is_base, Couleur, marque").order("marque", { nullsFirst: false }).order("cordage"),
         supabase.from("statuts").select("statut_id"),
         supabase.from("cordeur").select("cordeur").order("cordeur"),
@@ -320,7 +321,7 @@ const submit = async (e) => {
   } finally {
     setSaving(false);
   }
-};    
+};
 
     // ------- Items ComboBox -------
     const clientItems  = useMemo(() => clients.map((c) => ({ value: c.id, label: `${formatNom(c.nom)} ${formatPrenom(c.prenom)}`.trim() })), [clients]);

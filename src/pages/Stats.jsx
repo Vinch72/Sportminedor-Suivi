@@ -8,6 +8,7 @@ import {
 import MonthlyRevenueChart from "../components/stats/MonthlyRevenueChart.jsx";
 import { computeGainCordeur } from "../utils/computeGainCordeur";
 import { withCordageSnapshot } from "../utils/cordages";
+import { fetchAll } from "../utils/fetchAll";
 
 /* ─────────────────────────────────────────────
    HELPERS (identiques à Stats.jsx original)
@@ -239,12 +240,12 @@ export default function Stats() {
       setLoading(true); setErr("");
       try {
         const [s, lc, lclubs, lcordages, tmeta, traq, tm] = await Promise.all([
-          supabase.from("suivi").select("*").gte("date", startISO).lte("date", endISO).order("date",{ascending:false}).order("id",{ascending:false}),
+          fetchAll(() => supabase.from("suivi").select("*").gte("date", startISO).lte("date", endISO).order("date",{ascending:false}).order("id",{ascending:false})),
           supabase.from("cordeur").select("*"),
           supabase.from("clubs").select("*"),
           supabase.from("cordages").select("*"),
           supabase.from("tournois").select("tournoi, start_date, end_date").order("start_date",{ascending:false}),
-          supabase.from("tournoi_raquettes").select(`id, tournoi, date, statut_id, club_id, cordeur_id, cordage_id, offert, fourni, gain_cents, cordage_is_base, cordeur:cordeur(cordeur)`).gte("date",startISO).lte("date",endISO).order("date",{ascending:false}).order("id",{ascending:false}),
+          fetchAll(() => supabase.from("tournoi_raquettes").select(`id, tournoi, date, statut_id, club_id, cordeur_id, cordage_id, offert, fourni, gain_cents, cordage_is_base, cordeur:cordeur(cordeur)`).gte("date",startISO).lte("date",endISO).order("date",{ascending:false}).order("id",{ascending:false})),
           supabase.from("tarif_matrix").select("*"),
         ]);
         const firstErr = [s,lc,lclubs,lcordages,tmeta,traq,tm].find(r=>r.error)?.error;

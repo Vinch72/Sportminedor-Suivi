@@ -1,6 +1,7 @@
 // src/components/SuiviTable.jsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
+import { fetchAll } from "../utils/fetchAll";
 
 /* ===== Icônes ===== */
 function IconEdit(props){
@@ -128,10 +129,10 @@ export default function SuiviTable({ onEdit }) {
           : r
       )
     );
-  
+
     const patch = { statut_id: newStatut };
     if (isPAYE(newStatut)) patch.reglement_date = new Date().toISOString();
-  
+
     const { error } = await supabase.from("suivi").update(patch).eq("id", id);
     if (error) {
       console.error(error);
@@ -139,7 +140,7 @@ export default function SuiviTable({ onEdit }) {
       // (facultatif) déclenche ton mécanisme de reload global si tu en as un
       window.dispatchEvent(new CustomEvent("suivi:updated"));
     }
-  }  
+  }
 
   async function onDeleteRow(row) {
     const ok = window.confirm("Voulez-vous vraiment supprimer cette ligne de Suivi ?");
@@ -200,7 +201,7 @@ export default function SuiviTable({ onEdit }) {
       setErr("");
       try {
         const [cl, cb, co, cr] = await Promise.all([
-          supabase.from("clients").select("id, nom, prenom"),
+          fetchAll(() => supabase.from("clients").select("id, nom, prenom").order("id")),
           supabase.from("clubs").select("clubs, bobine_base, bobine_specific"),
           supabase.from("cordages").select("cordage, is_base"),
           supabase.from("cordeur").select("cordeur"),
@@ -270,7 +271,7 @@ export default function SuiviTable({ onEdit }) {
       currency: "EUR",
       maximumFractionDigits: 0,
     }).format(n);
-  };  
+  };
 
   const clientDisplayName = (row) => {
     const c = clientsMap[row?.client_id];
