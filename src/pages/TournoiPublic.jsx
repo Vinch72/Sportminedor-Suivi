@@ -140,10 +140,10 @@ export default function TournoiPublic() {
     if (!isValid) { setPhoneErr("Numéro invalide — entre un 06 ou 07 (ex: 06 12 34 56 78)"); return; }
     const normalized = normalizePhone(cleaned);
     setPhoneLoading(true);
-    const r1 = await supabase.from("clients").select("id, nom, prenom, phone, cordage, tension, club").eq("phone", normalized);
+    const r1 = await supabase.rpc("public_find_clients_by_phone", { p_phone: normalized });
     let results = r1.data || [];
-    if (results.length === 0) {
-      const r2 = await supabase.from("clients").select("id, nom, prenom, phone, cordage, tension, club").eq("phone", phone.replace(/[\s.\-]/g, ""));
+    if (results.length === 0 && cleaned !== normalized) {
+      const r2 = await supabase.rpc("public_find_clients_by_phone", { p_phone: cleaned });
       results = r2.data || [];
     }
     setPhoneLoading(false);
@@ -175,12 +175,12 @@ export default function TournoiPublic() {
     if (!newClient.club_id)       { setClientErr("Le club est requis."); return; }
     setSavingClient(true);
     try {
-      const { data, error } = await supabase.from("clients").insert({
-        nom:    fmtNom(newClient.nom),
-        prenom: fmtPrenom(newClient.prenom),
-        phone:  newClient.phone,
-        club:   newClient.club_id || null,
-      }).select("id, nom, prenom, phone, cordage, tension, club").single();
+      const { data, error } = await supabase.rpc("public_create_client", {
+        p_nom:    fmtNom(newClient.nom),
+        p_prenom: fmtPrenom(newClient.prenom),
+        p_phone:  newClient.phone,
+        p_club:   newClient.club_id || null,
+      });
       if (error) throw error;
       setClient(data);
       setStep(STEP.RACKET);
@@ -191,37 +191,24 @@ export default function TournoiPublic() {
   async function handleConfirmSubmit() {
     setSaving(true);
     try {
-      const { data: cordData } = await supabase.from("tournoi_cordeurs").select("cordeur").eq("tournoi", tournoiId);
-      const cordeurs    = (cordData || []).map(d => d.cordeur);
-      const autoCordeur = cordeurs.length === 1 ? cordeurs[0] : null;
       // Quand fourni : le cordage est libre (texte) → cordage_text, pas cordage_id (FK)
       const knownCordage = cordages.find(c => c.cordage === form.cordage_id);
       const cordageId   = (!form.fourni || knownCordage) ? (form.cordage_id || null) : null;
       const cordageText = form.fourni && !knownCordage ? (form.cordage_id || null) : null;
 
-      const { error } = await supabase.from("tournoi_raquettes").insert({
-        tournoi:      tournoiId,
-        client_id:    client.id,
-        cordage_id:   cordageId,
-        cordage_text: cordageText,
-        tension:      form.tension  || null,
-        raquette:     form.raquette || null,
-        notes:        form.notes    || null,
-        club_id:      client.club   || null,
-        cordeur_id:   autoCordeur,
-        fourni:       form.fourni,
-        statut_id:    "A FAIRE",
-        exported:     false,
+      // Dépôt + mise à jour cordage/tension de la fiche client (côté serveur)
+      const { error } = await supabase.rpc("public_deposit_racket", {
+        p_phone:        client.phone,
+        p_client_id:    client.id,
+        p_tournoi:      tournoiId,
+        p_cordage_id:   cordageId,
+        p_cordage_text: cordageText,
+        p_tension:      form.tension  || null,
+        p_raquette:     form.raquette || null,
+        p_notes:        form.notes    || null,
+        p_fourni:       !!form.fourni,
       });
       if (error) throw error;
-
-      // Mise à jour fiche client : cordage + tension (silencieux)
-      if (client.id && (form.cordage_id || form.tension)) {
-        const patch = {};
-        if (form.cordage_id) patch.cordage = form.cordage_id;
-        if (form.tension)    patch.tension = form.tension;
-        await supabase.from("clients").update(patch).eq("id", client.id);
-      }
 
       setStep(STEP.SUCCESS);
     } catch (err) {
