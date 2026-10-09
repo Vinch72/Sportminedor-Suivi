@@ -5,6 +5,7 @@ import BackButton from "./components/BackButton"; // ou "../components/BackButto
 import PageHeader from "./components/ui/PageHeader"
 import { useNavigate } from "react-router-dom";
 import SuiviResponsive from "./components/SuiviResponsive";
+import DepotCasierAlert from "./components/DepotCasierAlert";
 
 function TournamentAlerts() {
   const navigate = useNavigate();
@@ -352,6 +353,9 @@ useEffect(() => {
   <div className="w-[92vw] max-w-[1400px] mx-auto"> 
     
     <PageHeader title="Suivi" description="Suivez les raquettes cordées, les paiements et les statuts en temps réel." />
+
+    {/* Dépôts casier en attente */}
+    <DepotCasierAlert />
 
     {/* Cartes */}
 <div className="mb-4">

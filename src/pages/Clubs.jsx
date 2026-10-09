@@ -5,6 +5,7 @@ import { supabase } from "../utils/supabaseClient";
 import PageHeader from "../components/ui/PageHeader"
 import ClubCasier from "../components/clubs/ClubCasier";
 import { useDepotAlerts } from "../hooks/useDepotAlerts";
+import { useSearchParams } from "react-router-dom";
 
 // Helpers
 function normStr(s) {
@@ -107,6 +108,16 @@ function fileToDataUrl(file) {
   // Casier (dépôts QR) : dépôts en attente par club + fenêtre ouverte
   const { depots: pendingDepots, byClub: pendingByClub } = useDepotAlerts(true);
   const [casierClub, setCasierClub] = useState(null);
+
+  // Lien depuis le bandeau du Suivi : /clubs?casier=<nom du club>
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const name = searchParams.get("casier");
+    if (!name || !clubs.length) return;
+    const club = clubs.find(c => c.clubs === name);
+    if (club) setCasierClub(club);
+    setSearchParams({}, { replace: true });
+  }, [clubs, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doneBase = Number(selected?.billed_base_batches ?? 0);
   const doneSpec = Number(selected?.billed_spec_batches ?? 0);
