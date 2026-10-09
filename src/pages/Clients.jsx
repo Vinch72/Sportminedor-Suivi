@@ -440,7 +440,6 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
                         onSelect={c => { setSelected(c); setNotesDraft(c.notes ?? ""); }}
                         onEdit={fillFormFromClient}
                         onDelete={onDeleteClient}
-              onRaquettes={setRaquettesClient}
                         onRaquettes={setRaquettesClient}
                         notePreview={notePreview}
                       />
@@ -492,6 +491,7 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
               onSelect={c => { setSelected(c); setNotesDraft(c.notes ?? ""); }}
               onEdit={fillFormFromClient}
               onDelete={onDeleteClient}
+              onRaquettes={setRaquettesClient}
               notePreview={notePreview}
             />
           </li>
