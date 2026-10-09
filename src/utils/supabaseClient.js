@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, processLock } from '@supabase/supabase-js';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -9,6 +9,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    // Verrou interne à l'onglet au lieu de navigator.locks (partagé entre
+    // onglets) : sur mobile, un onglet en veille gardait le verrou et toutes
+    // les requêtes échouaient ("AbortError: signal is aborted without reason").
+    lock: processLock,
   },
 });
 
