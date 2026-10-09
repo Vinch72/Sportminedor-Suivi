@@ -112,9 +112,14 @@ function normalizePhoneFR(input) {
 }
 
 async function sendSmsViaServer({ to, content }) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
   const r = await fetch("/api/send-sms", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ to, content }),
   });
 
