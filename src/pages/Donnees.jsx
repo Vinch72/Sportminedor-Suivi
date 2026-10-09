@@ -46,8 +46,7 @@ export default function Donnees() {
   const [pmEmoji, setPmEmoji] = useState("");
 
   // --- states ---
-  const [cordages, setCordages] = useState([]);
-  const [cordeurs, setCordeurs] = useState([]);
+    const [cordeurs, setCordeurs] = useState([]);
   const [statuts, setStatuts]   = useState([]);
   const [matrix, setMatrix]     = useState([]); // tarif_matrix
 
@@ -90,21 +89,7 @@ function askConfirm(config, action) {
   setConfirmOpen(true);
 }
 
-  // --- form: cordage ---
-  const [cordageName, setCordageName] = useState("");
-  const [cordageColor, setCordageColor] = useState("none");
-  const [cordageIsBase, setCordageIsBase] = useState(false);
-  const [cordageMarque, setCordageMarque] = useState("");
   // --- edit states (listes à droite) ---
-  const [editCordageIdx, setEditCordageIdx] = useState(-1);
-  const [editCordageVal, setEditCordageVal] = useState({
-    cordage: "",
-    Couleur: "none",
-    is_base: false,
-    gain_cents: null,
-    gain_magasin_cents: null,
-    marque: "",
-  });
   const [editCordeurIdx, setEditCordeurIdx] = useState(-1);
   const [editCordeurVal, setEditCordeurVal] = useState("");
 
@@ -156,8 +141,7 @@ function askConfirm(config, action) {
     (async () => {
       setLoading(true);
       try {
-        const [c1, c2, c3, c4, c5, c6, c7, c8] = await Promise.all([
-          supabase.from("cordages").select("cordage, Couleur, is_base, gain_cents, gain_magasin_cents, marque").order("marque", { nullsFirst: false }).order("cordage"),
+        const [c2, c3, c4, c5, c6, c7, c8] = await Promise.all([
           supabase.from("cordeur").select("cordeur, remun_magasin").order("cordeur"),
           supabase.from("statuts").select("statut_id").order("statut_id"),
           supabase.from("tarif_matrix").select("*").order("id"),
@@ -167,7 +151,6 @@ function askConfirm(config, action) {
           supabase.from("app_settings").select("*").eq("key","fourni_gain_14_cents").maybeSingle(),
 
         ]);
-        if (c1.error) throw c1.error;
         if (c2.error) throw c2.error;
         if (c3.error) throw c3.error;
         if (c4.error) throw c4.error;
@@ -175,7 +158,6 @@ function askConfirm(config, action) {
         if (!c6.error) {
           setT_express(fromCents(c6.data?.value_cents ?? 400));
         }
-        setCordages(c1.data || []);
         setCordeurs(c2.data || []);
         setStatuts(c3.data || []);
         setMatrix(c4.data || []);
@@ -302,26 +284,6 @@ function askConfirm(config, action) {
   );
 }
 
-  async function addCordage() {
-    if (!requireUnlocked()) return;
-    if (!cordageName.trim()) { showToast("Erreur", "Nom du cordage requis", "warning"); return; }
-    const payload = {
-      cordage: cordageName.trim(),
-      Couleur: (cordageColor || "none").trim(),
-      is_base: !!cordageIsBase,
-      marque: cordageMarque.trim() || null,
-    };
-    const { error } = await supabase.from("cordages").insert(payload);
-    if (error) { showToast("Erreur", error.message, "warning"); return; }
-    setCordageName(""); setCordageColor("none"); setCordageIsBase(false); setCordageMarque("");
-    setCordages(prev => [...prev, payload].sort((a,b) => {
-      const ma = (a.marque||"zzz").toLowerCase(), mb = (b.marque||"zzz").toLowerCase();
-      if (ma !== mb) return ma.localeCompare(mb,"fr");
-      return a.cordage.localeCompare(b.cordage,"fr");
-    }));
-    showToast("✅ Ajout", "Cordage ajouté !", "success");
-  }
-
   async function addCordeur() {
     if (!requireUnlocked()) return;
     if (!cordeurName.trim()) { showToast("Erreur", "Nom du cordeur requis", "warning"); return; }
@@ -344,67 +306,6 @@ function askConfirm(config, action) {
     setNewStatut("");
     showToast("✅ Ajout", "Statut ajouté !", "success");
   }
-
-  // ---- Cordages : edit + delete ----
-async function saveEditCordage(oldName) {
-  if (!requireUnlocked()) return;
-
-  const payload = {
-    cordage: (editCordageVal.cordage || "").trim(),
-    Couleur: (editCordageVal.Couleur || "none").trim(),
-    is_base: !!editCordageVal.is_base,
-    gain_cents: (typeof editCordageVal.gain_cents === "number" ? editCordageVal.gain_cents : null),
-    gain_magasin_cents: (typeof editCordageVal.gain_magasin_cents === "number" ? editCordageVal.gain_magasin_cents : null),
-    marque: (editCordageVal.marque || "").trim() || null,
-  };
-
-  if (!payload.cordage) { showToast("Erreur", "Nom du cordage requis", "warning"); return; }
-
-  const { error } = await supabase
-    .from("cordages")
-    .update(payload)
-    .eq("cordage", oldName);
-
-  if (error) { showToast("Erreur", error.message, "warning"); return; }
-
-  setCordages(prev =>
-    prev
-      .map(c => c.cordage === oldName ? { ...c, ...payload } : c)
-      .sort((a,b) => {
-        const ma = (a.marque||"zzz").toLowerCase(), mb = (b.marque||"zzz").toLowerCase();
-        if (ma !== mb) return ma.localeCompare(mb,"fr");
-        return a.cordage.localeCompare(b.cordage,"fr");
-      })
-  );
-
-  setEditCordageIdx(-1);
-  setEditCordageVal({ cordage:"", Couleur:"none", is_base:false, gain_cents:null, gain_magasin_cents:null, marque:"" });
-  showToast("✅ Modification", "Cordage modifié !", "success");
-}
-
-async function deleteCordage(name) {
-  if (!requireUnlocked()) return;
-
-  askConfirm(
-    {
-      title: "Supprimer ce cordage ?",
-      message: `Tu vas supprimer "${name}". Cette action est irréversible.`,
-      icon: "🗑️",
-      confirmLabel: "Supprimer",
-      cancelLabel: "Annuler",
-      danger: true,
-    },
-    async () => {
-      const { error } = await supabase.from("cordages").delete().eq("cordage", name);
-      if (error) {
-        showToast("Erreur", "Suppression impossible: " + error.message, "warning");
-        return;
-      }
-      setCordages((prev) => prev.filter((c) => c.cordage !== name));
-      showToast("🗑️ Suppression", "Cordage supprimé.", "success");
-    }
-  );
-}
 
 // ---- Cordeurs : edit + delete ----
 async function saveEditCordeur(oldName) {
@@ -582,7 +483,7 @@ return (
     <div className="space-y-6">
       <PageHeader
         title="Données"
-        description="Configurez les cordages, tarifs, modes de paiement et paramètres de l'application."
+        description="Configurez les cordeurs, statuts, tarifs, modes de paiement et paramètres de l'application."
         action={
           <button
             onClick={lock}
@@ -595,118 +496,7 @@ return (
       />
       {loading && <div className="text-sm text-gray-400">Chargement…</div>}
 
-      {/* ── 1) Cordages ── */}
-      <section className="card p-4">
-        <SectionHeader icon="🏸" title="Cordages" sub="Gérez les cordages disponibles et leurs paramètres de gain" />
-
-        <div className="mt-4 grid md:grid-cols-2 gap-6">
-          {/* Formulaire ajout */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <div className="text-sm font-semibold text-gray-700 mb-3">Ajouter un cordage</div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Marque</label>
-                <input className="input-field" placeholder="ex: Yonex, Babolat…" value={cordageMarque} onChange={(e)=>setCordageMarque(e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Nom</label>
-                <input className="input-field" placeholder="ex: BG 65" value={cordageName} onChange={(e)=>setCordageName(e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Couleur</label>
-                <input className="input-field" placeholder="none" value={cordageColor} onChange={(e)=>setCordageColor(e.target.value)} />
-              </div>
-              <label className="flex items-center gap-2 text-sm text-gray-700 self-end pb-1">
-                <input type="checkbox" checked={cordageIsBase} onChange={e=>setCordageIsBase(e.target.checked)} />
-                Cordage basique
-              </label>
-              <div className="flex items-end">
-                <button className="btn-red" onClick={addCordage}>+ Ajouter</button>
-              </div>
-            </div>
-          </div>
-
-          {/* Liste */}
-          <div>
-            <div className="text-sm font-semibold text-gray-700 mb-3">
-              Liste <span className="text-gray-400 font-normal">({cordages.length})</span>
-            </div>
-            <div className="divide-y divide-gray-100 max-h-72 overflow-y-auto pr-1">
-              {cordages.map((c, i) => (
-                <div key={c.cordage} className="py-2.5 flex items-start justify-between gap-3">
-                  {editCordageIdx===i ? (
-                    <div className="flex-1 grid sm:grid-cols-3 gap-2">
-                      <div>
-                        <label className="text-xs text-gray-500">Marque</label>
-                        <input className="input-field" defaultValue={c.marque || ""} onChange={(e)=>setEditCordageVal(v=>({...v, marque:e.target.value}))} placeholder="ex: Yonex" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500">Nom</label>
-                        <input className="input-field" defaultValue={c.cordage} onChange={(e)=>setEditCordageVal(v=>({...v, cordage:e.target.value}))} />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500">Couleur</label>
-                        <input className="input-field" defaultValue={c.Couleur || "none"} onChange={(e)=>setEditCordageVal(v=>({...v, Couleur:e.target.value}))} />
-                      </div>
-                      <label className="flex items-center gap-2 text-sm self-center">
-                        <input type="checkbox" defaultChecked={!!c.is_base} onChange={(e)=>setEditCordageVal(v=>({...v, is_base:e.target.checked}))} />
-                        basique
-                      </label>
-                      <div>
-                        <label className="text-xs text-gray-500">Gain tournoi (€)</label>
-                        <input type="number" step="0.01" min="0" className="input-field" defaultValue={(c.gain_cents ?? 0) / 100}
-                          onChange={(e)=> { const v = parseFloat(e.target.value || "0"); setEditCordageVal(vv => ({ ...vv, gain_cents: isNaN(v) ? null : Math.round(v*100) })); }} />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500">Gain magasin (€)</label>
-                        <input type="number" step="0.01" min="0" className="input-field" defaultValue={(c.gain_magasin_cents ?? 0) / 100}
-                          onChange={(e)=> { const v = parseFloat(e.target.value || "0"); setEditCordageVal(vv => ({ ...vv, gain_magasin_cents: isNaN(v) ? null : Math.round(v*100) })); }} />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">
-                        {c.marque && <span className="text-gray-400 font-normal mr-1">{c.marque} •</span>}
-                        {c.cordage}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                        {c.Couleur && c.Couleur !== "none" && (
-                          <span className="text-xs text-gray-500">🎨 {c.Couleur}</span>
-                        )}
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${c.is_base ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}`}>
-                          {c.is_base ? "basique" : "spécifique"}
-                        </span>
-                        {typeof c.gain_cents === "number" && (
-                          <span className="text-xs text-gray-400">T: {(c.gain_cents/100).toLocaleString("fr-FR")}€</span>
-                        )}
-                        {typeof c.gain_magasin_cents === "number" && (
-                          <span className="text-xs text-gray-400">M: {(c.gain_magasin_cents/100).toLocaleString("fr-FR")}€</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  <div className="shrink-0 flex items-center gap-1.5">
-                    {editCordageIdx===i ? (
-                      <>
-                        <button className="icon-btn" title="Enregistrer" onClick={()=>saveEditCordage(c.cordage)}>💾</button>
-                        <button className="icon-btn" title="Annuler" onClick={() => { setEditCordageIdx(-1); setEditCordageVal({ cordage:"", Couleur:"none", is_base:false, gain_cents:null, gain_magasin_cents:null, marque:"" }); }}>✖</button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="icon-btn" title="Éditer" onClick={()=>{ setEditCordageIdx(i); setEditCordageVal({ cordage: c.cordage, Couleur: c.Couleur || "none", is_base: !!c.is_base, gain_cents: (typeof c.gain_cents === "number" ? c.gain_cents : null), gain_magasin_cents: (typeof c.gain_magasin_cents === "number" ? c.gain_magasin_cents : null), marque: c.marque || "" }); }}><IconEdit /></button>
-                        <button className="icon-btn-red" title="Supprimer" onClick={()=>deleteCordage(c.cordage)}><IconTrash /></button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {cordages.length===0 && <div className="py-6 text-sm text-gray-400 text-center">Aucun cordage enregistré.</div>}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── 2) Cordeurs ── */}
+      {/* ── 1) Cordeurs ── */}
       <section className="card p-4">
         <SectionHeader icon="🧑‍🔧" title="Cordeurs" sub="Gérez les cordeurs et leurs paramètres de rémunération" />
 
@@ -769,7 +559,7 @@ return (
         </div>
       </section>
 
-      {/* ── 3) Statuts ── */}
+      {/* ── 2) Statuts ── */}
       <section className="card p-4">
         <SectionHeader icon="🏷️" title="Statuts" sub="Gérez les statuts de suivi des raquettes" />
 
@@ -810,7 +600,7 @@ return (
         </div>
       </section>
 
-      {/* ── 4) Règles tarifaires ── */}
+      {/* ── 3) Règles tarifaires ── */}
       <section className="card p-4">
         <SectionHeader icon="💰" title="Règles tarifaires" sub="Définissez les prix selon le type de cordage et les bobines du club" />
 
@@ -866,7 +656,7 @@ return (
         </div>
       </section>
 
-      {/* ── 5) Moyens de règlement ── */}
+      {/* ── 4) Moyens de règlement ── */}
       <section className="card p-4">
         <SectionHeader icon="💳" title="Moyens de règlement" sub="Gérez les modes de paiement disponibles à la saisie" />
 

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
 import { toCanonical, normalize } from "../utils/payment";
+import { raquetteLabel } from "../utils/raquettes";
 
 /**
  * Props optionnelles pour l'édition :
@@ -83,6 +84,8 @@ export default function SuiviForm({ editingId, initialData, onDone, onTitleChang
   const [couleur, setCouleur] = useState("");
   const [tension, setTension] = useState("");
   const [raquette, setRaquette] = useState("");
+  const [raquetteId, setRaquetteId] = useState(""); // => suivi.raquette_id (facultatif)
+  const [clientRaquettes, setClientRaquettes] = useState([]);
   const [fourni, setFourni] = useState(false);
   const [offert, setOffert] = useState(false);
   const [askPay, setAskPay] = useState(null); // { ids: number[] } ou null
@@ -123,6 +126,7 @@ useEffect(() => {
       setCouleur(initialData.couleur ?? "");
       setTension(initialData.tension ?? "");
       setRaquette(initialData.raquette ?? "");
+      setRaquetteId(initialData.raquette_id ?? "");
       setNote(initialData.note ?? "");
       setFourni(!!initialData.fourni);
       setOffert(!!initialData.offert);
@@ -203,6 +207,72 @@ useEffect(() => {
     setLastClientId(clientId);
   }
 }, [clientId, clients, lastClientId, clubId, tension, cordageId, phone]);
+
+  // Raquettes enregistrées du client (table raquettes ; silencieux si indisponible)
+  useEffect(() => {
+    if (!clientId) { setClientRaquettes([]); return; }
+    let alive = true;
+    supabase.from("raquettes")
+      .select("id, brand, model, pref_cordage_id, pref_tension")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (!alive) return;
+        const list = error ? [] : (data || []);
+        setClientRaquettes(list);
+        // Changement de client : la raquette liée n'est plus la sienne
+        setRaquetteId(id => (id && !list.some(r => r.id === id) ? "" : id));
+      });
+    return () => { alive = false; };
+  }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function pickRaquette(r) {
+    setRaquetteId(r.id);
+    setRaquette(raquetteLabel(r));
+    // En création : cordage/tension mémorisés sur la raquette
+    if (!isEdit) {
+      if (r.pref_cordage_id) setCordageId(r.pref_cordage_id);
+      if (r.pref_tension) setTension(r.pref_tension);
+    }
+  }
+
+  function onRaquetteTextChange(v) {
+    const txt = v.toUpperCase();
+    setRaquette(txt);
+    const linked = clientRaquettes.find(r => r.id === raquetteId);
+    if (raquetteId && (!linked || raquetteLabel(linked) !== txt)) setRaquetteId("");
+  }
+
+  // Raquette à lier au suivi : sélectionnée, sinon même libellé chez le client,
+  // sinon créée à partir du texte saisi. Jamais bloquant (null si échec).
+  async function resolveRaquetteId() {
+    const txt = (raquette || "").trim().toUpperCase();
+    if (!clientId || !txt) return null;
+    if (raquetteId) return raquetteId;
+    const same = clientRaquettes.find(r =>
+      raquetteLabel(r).toUpperCase() === txt || (r.model || "").toUpperCase() === txt);
+    if (same) return same.id;
+    try {
+      const { data, error } = await supabase.from("raquettes")
+        .insert({ client_id: clientId, model: txt, pref_cordage_id: cordageId || null, pref_tension: tension || null })
+        .select("id").single();
+      if (error) throw error;
+      setClientRaquettes(prev => [{ id: data.id, brand: null, model: txt, pref_cordage_id: cordageId || null, pref_tension: tension || null }, ...prev]);
+      return data.id;
+    } catch (e) {
+      console.warn("Création raquette ignorée:", e);
+      return null;
+    }
+  }
+
+  // "Enregistrer pour les futurs cordages" : mémorise aussi sur la raquette
+  async function saveRaquettePrefs(id) {
+    if (!id) return;
+    const { error } = await supabase.from("raquettes")
+      .update({ pref_cordage_id: cordageId || null, pref_tension: tension || null })
+      .eq("id", id);
+    if (error) console.warn("Maj préférences raquette ignorée:", error);
+  }
 
   // helpers labels + calcul tarif
   const clientsMap = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients]);
@@ -318,6 +388,10 @@ const finalTarif = calcTarif();
         bobine_used: computeBobineUsed({ fourni, clubId, cordageId, clubs, cordages }),
       };
 
+      // Lien facultatif vers la table raquettes (le texte "raquette" reste rempli)
+      const linkedRaquetteId = await resolveRaquetteId();
+      if (linkedRaquetteId || initialData?.raquette_id) base.raquette_id = linkedRaquetteId;
+
       if (isEdit) {
   const { data, error } = await supabase
     .from("suivi")
@@ -347,6 +421,7 @@ const finalTarif = calcTarif();
               cordage:  cordageId || null,   // clients.cordage = string (ex: "BG65")
             })
             .eq("id", clientId);
+          await saveRaquettePrefs(base.raquette_id);
 
           window.dispatchEvent(new CustomEvent("clients:updated", { detail: { id: clientId }}));
         }
@@ -402,6 +477,7 @@ try {
 
     if (error) throw error;
     if (!data || data.length !== 1) throw new Error("Client non mis à jour (RLS/ID).");
+    await saveRaquettePrefs(base.raquette_id);
 
     window.dispatchEvent(new CustomEvent("clients:updated", { detail: { id: clientId } }));
   }
@@ -437,7 +513,7 @@ try {
 
       setOk(`✅ ${data.length} ligne(s) ajoutée(s).`);
 setQte(1);
-setCouleur(""); setTension(""); setRaquette(""); setNote(""); setPhone(""); setExpress(false);
+setCouleur(""); setTension(""); setRaquette(""); setRaquetteId(""); setNote(""); setPhone(""); setExpress(false);
 
 // Si PAYÉ -> on ouvre d'abord la modale de paiement, et
 // on NE ferme PAS la popup principale avant d'avoir choisi le mode.
@@ -588,7 +664,26 @@ onDone?.({ type: "created", count: data.length });
         {/* Raquette + Cordeur + Oui/Non */}
 <div className="grid grid-cols-1 gap-4">
   <Field label="Modèle de raquette">
-    <input type="text" value={raquette} onChange={e=>setRaquette(e.target.value.toUpperCase())} className="w-full border rounded-lg p-2" placeholder="ex: Astrox 88 S Pro" />
+    <input type="text" value={raquette} onChange={e=>onRaquetteTextChange(e.target.value)} className="w-full border rounded-lg p-2" placeholder="ex: Astrox 88 S Pro" />
+    {clientRaquettes.length > 0 && (
+      <div className="mt-2">
+        <div className="text-xs text-gray-400 mb-1">Raquettes du client :</div>
+        <div className="flex flex-wrap gap-1.5">
+          {clientRaquettes.map(r => {
+            const active = r.id === raquetteId;
+            return (
+              <button key={r.id} type="button" onClick={() => pickRaquette(r)}
+                className="px-2.5 py-1 rounded-full border text-xs font-medium transition"
+                style={active
+                  ? { background: "rgba(225,6,0,0.08)", borderColor: "#E10600", color: "#E10600" }
+                  : { background: "#fff", borderColor: "#e5e7eb", color: "#374151" }}>
+                🏸 {raquetteLabel(r)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    )}
   </Field>
 
   <Field label="Cordeur">

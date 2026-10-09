@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../utils/supabaseClient";
 import PageHeader from "../components/ui/PageHeader"
+import ClientRaquettes from "../components/ClientRaquettes";
 
 // === Helpers (declare BEFORE component to avoid TDZ) ===
 function normStr(s) {
@@ -578,6 +579,8 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
           <Detail label="Club" value={selected.club ?? "—"} />
           <Detail label="Téléphone" value={selected.phone ?? selected.telephone ?? "—"} />
           <Detail label="Email" value={selected.email ?? "—"} />
+
+          <ClientRaquettes clientId={selected.id} cordages={cordages} />
 
           <div className="mt-4">
             <div className="text-sm text-gray-500 mb-1">Notes</div>

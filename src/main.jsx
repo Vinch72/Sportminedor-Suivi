@@ -22,6 +22,7 @@ import Clubs from "./pages/Clubs";
 import Stats from "./pages/Stats";
 import TournoisPage from "./pages/TournoisPage";
 import Donnees from "./pages/Donnees";
+import Cordages from "./pages/Cordages";
 import TournoiPublic    from "./pages/TournoiPublic";
 import PartenariatPage  from "./pages/PartenariatPage";
 import PartnerPortalPage from "./pages/PartnerPortalPage";
@@ -182,6 +183,7 @@ function Shell() {
             <Route path="/suivi"    element={<App />} />
             <Route path="/"         element={<Navigate to="/suivi" replace />} />
             <Route path="/stats"    element={<Stats />} />
+            <Route path="/cordages" element={<Cordages />} />
             <Route path="/donnees"  element={<Donnees />} />
             <Route path="/tournois" element={<TournoisPage />} />
             <Route path="/clients"     element={<Clients />} />
