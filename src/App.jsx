@@ -350,7 +350,7 @@ useEffect(() => {
   }, [seasonStart, seasonEnd, monthStart, monthEnd, statsReloadKey]); 
   return ( 
     <div className="min-h-screen bg-brand-gray py-5 px-4">
-  <div className="w-[92vw] max-w-[1400px] mx-auto"> 
+  <div className="w-full max-w-[1400px] mx-auto"> 
     
     <PageHeader title="Suivi" description="Suivez les raquettes cordées, les paiements et les statuts en temps réel." />
 

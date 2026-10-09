@@ -1,5 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  // Tailwind 2 (postcss7-compat) : "content" est ignoré → "purge" + mode JIT.
+  // JIT = seules les classes utilisées sont générées, y compris text-[10px],
+  // max-h-[85vh]… (auparavant ignorées) ; CSS ~3 Mo → quelques dizaines de Ko.
+  mode: "jit",
+  purge: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {

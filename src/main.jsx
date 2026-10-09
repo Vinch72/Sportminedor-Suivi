@@ -1,5 +1,5 @@
 // src/main.jsx
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import {
   BrowserRouter,
@@ -10,23 +10,26 @@ import {
   useLocation,
 } from "react-router-dom";
 
-import MentionsLegales from "./pages/MentionsLegales";
 
 import { AuthProvider } from "./auth/AuthProvider";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import Login from "./pages/Login";
 
-import App from "./App";
-import Clients from "./pages/Clients";
-import Clubs from "./pages/Clubs";
-import Stats from "./pages/Stats";
-import TournoisPage from "./pages/TournoisPage";
-import Donnees from "./pages/Donnees";
-import Cordages from "./pages/Cordages";
-import DepotPublic from "./pages/DepotPublic";
-import TournoiPublic    from "./pages/TournoiPublic";
-import PartenariatPage  from "./pages/PartenariatPage";
-import PartnerPortalPage from "./pages/PartnerPortalPage";
+// Pages chargées à la demande : les pages publiques (QR) ne téléchargent pas
+// le code de l'app staff (stats, partenariat…).
+const App               = lazy(() => import("./App"));
+const Clients           = lazy(() => import("./pages/Clients"));
+const Clubs             = lazy(() => import("./pages/Clubs"));
+const Stats             = lazy(() => import("./pages/Stats"));
+const TournoisPage      = lazy(() => import("./pages/TournoisPage"));
+const Donnees           = lazy(() => import("./pages/Donnees"));
+const Cordages          = lazy(() => import("./pages/Cordages"));
+const DepotPublic       = lazy(() => import("./pages/DepotPublic"));
+const TournoiPublic     = lazy(() => import("./pages/TournoiPublic"));
+const PartenariatPage   = lazy(() => import("./pages/PartenariatPage"));
+const PartnerPortalPage = lazy(() => import("./pages/PartnerPortalPage"));
+const MentionsLegales   = lazy(() => import("./pages/MentionsLegales"));
+const SuiviForm         = lazy(() => import("./components/SuiviForm"));
 
 import "./index.css";
 import logo from "./assets/sportminedor-logo.png";
@@ -34,7 +37,6 @@ import logo from "./assets/sportminedor-logo.png";
 import TopNav from "./components/Layout/TopNav";
 import { supabase } from "./utils/supabaseClient";
 
-import SuiviForm from "./components/SuiviForm";
 import { isDonneesUnlocked, DONNEES_UNLOCK_KEY } from "./components/PasscodeGate";
 
 const linkCls = ({ isActive }) =>
@@ -173,6 +175,7 @@ function Shell() {
 
       {/* Décale le contenu pour laisser place à la sidebar (desktop) ou à la topbar (mobile) */}
       <div className={!isPublicPage ? "md:pl-56 pt-14 md:pt-0" : ""}>
+        <Suspense fallback={<div className="p-6 text-sm text-gray-400">Chargement…</div>}>
         <Routes>
           {/* Public */}
           <Route path="/login"   element={<Login />} />
@@ -194,6 +197,7 @@ function Shell() {
             <Route path="/portal"      element={<PartnerPortalPage />} />
           </Route>
         </Routes>
+        </Suspense>
 
         {!isPublicPage && !isTournamentOnly && (
           <OverlayModal
@@ -201,20 +205,32 @@ function Shell() {
             title="🏸 Ajouter une raquette"
             onClose={() => setAddOpen(false)}
           >
-            <SuiviForm
-              editingId={null}
-              initialData={null}
-              onDone={() => {
-                setAddOpen(false);
-                window.dispatchEvent(new CustomEvent("suivi:created"));
-              }}
-            />
+            <Suspense fallback={<div className="text-sm text-gray-400">Chargement…</div>}>
+              <SuiviForm
+                editingId={null}
+                initialData={null}
+                onDone={() => {
+                  setAddOpen(false);
+                  window.dispatchEvent(new CustomEvent("suivi:created"));
+                }}
+              />
+            </Suspense>
           </OverlayModal>
         )}
       </div>
     </>
   );
 }
+
+// Après une mise en ligne, un onglet resté ouvert peut demander un morceau de
+// code qui n'existe plus → on recharge la page (une seule fois par minute).
+window.addEventListener("vite:preloadError", (event) => {
+  const last = Number(sessionStorage.getItem("preload_reload_at") || 0);
+  if (Date.now() - last < 60_000) return;
+  sessionStorage.setItem("preload_reload_at", String(Date.now()));
+  event.preventDefault();
+  window.location.reload();
+});
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

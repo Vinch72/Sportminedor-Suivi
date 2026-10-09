@@ -7,7 +7,7 @@ export default function AppLayout() {
       <TopNav />
       {/* Le header est sticky h-12 → on laisse de l'espace en haut */}
       <main className="pt-12 px-4">
-        <div className="w-[92vw] max-w-[1400px] mx-auto">
+        <div className="w-full max-w-[1400px] mx-auto">
           <Outlet />
         </div>
       </main>
