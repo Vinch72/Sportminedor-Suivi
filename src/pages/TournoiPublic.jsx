@@ -13,6 +13,7 @@ const STEP = {
   SELECT_CLIENT: "select_client",
   NEW_CLIENT:    "new_client",
   RACKET:        "racket",
+  CORDAGE:       "cordage",
   CONFIRM:       "confirm",
   SUCCESS:       "success",
 };
@@ -53,7 +54,32 @@ export default function TournoiPublic() {
   const [savingClient, setSavingClient] = useState(false);
   const [form,    setForm]    = useState({ raquette: "", raquette_id: "", cordage_id: "", tension: "", notes: "", fourni: false });
   const [formErr, setFormErr] = useState("");
+  const [addingRaq, setAddingRaq] = useState(false);
+  const [newRaq,    setNewRaq]    = useState({ brand: "", model: "" });
   const [saving,  setSaving]  = useState(false);
+
+  // ── Raquettes enregistrées du client ─────────────────────────────────────
+  const myRaquettes = client?.raquettes || [];
+  const raqLabel = (r) => [r.brand, r.model].filter(Boolean).join(" ") || "Raquette";
+  useEffect(() => {
+    // Pas de raquette enregistrée → formulaire "nouvelle raquette" ouvert d'office
+    setAddingRaq(!(client?.raquettes || []).length);
+    setNewRaq({ brand: "", model: "" });
+    setForm(f => ({ ...f, raquette: "", raquette_id: "" }));
+  }, [client?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function pickRaquette(rq) {
+    setAddingRaq(false);
+    setNewRaq({ brand: "", model: "" });
+    setForm(f => ({
+      ...f,
+      raquette_id: rq.id,
+      raquette: raqLabel(rq),
+      // cordage + tension mémorisés sur cette raquette
+      ...(rq.pref_cordage_id && !f.fourni && cordages.some(c => c.cordage === rq.pref_cordage_id) ? { cordage_id: rq.pref_cordage_id } : {}),
+      ...(rq.pref_tension ? { tension: rq.pref_tension } : {}),
+    }));
+  }
 
   // ── Bloquer navigation arrière ───────────────────────────────────────────
   useEffect(() => {
@@ -64,7 +90,8 @@ export default function TournoiPublic() {
         if (prev === STEP.SELECT_CLIENT) return STEP.PHONE;
         if (prev === STEP.NEW_CLIENT)    return STEP.PHONE;
         if (prev === STEP.RACKET)        return STEP.PHONE;
-        if (prev === STEP.CONFIRM)       return STEP.RACKET;
+        if (prev === STEP.CORDAGE)       return STEP.RACKET;
+        if (prev === STEP.CONFIRM)       return STEP.CORDAGE;
         if (prev === STEP.SUCCESS)       return STEP.SUCCESS;
         return prev;
       });
@@ -215,7 +242,7 @@ export default function TournoiPublic() {
       setStep(STEP.SUCCESS);
     } catch (err) {
       setFormErr(err.message);
-      setStep(STEP.RACKET);
+      setStep(STEP.CORDAGE);
     } finally { setSaving(false); }
   }
 
@@ -223,7 +250,7 @@ export default function TournoiPublic() {
   const tournoiDate  = fmtTournoiDate(tournoi);
   const prix         = computePrice(client?.club || "", form.cordage_id, form.fourni);
   const prixFmt      = prix !== null ? prix.toFixed(2).replace(".", ",") + " €" : null;
-  const showWarn     = [STEP.PHONE, STEP.SELECT_CLIENT, STEP.NEW_CLIENT, STEP.RACKET].includes(step);
+  const showWarn     = [STEP.PHONE, STEP.SELECT_CLIENT, STEP.NEW_CLIENT, STEP.RACKET, STEP.CORDAGE].includes(step);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -427,60 +454,87 @@ export default function TournoiPublic() {
               </div>
             </div>
 
-            <div className="text-base font-bold text-gray-900 mb-4">Quelle raquette dépose-tu aujourd'hui ?</div>
+            <div className="text-base font-bold text-gray-900 mb-3">Quelle raquette déposes-tu aujourd'hui ?</div>
 
+            <div className="space-y-2">
+              {myRaquettes.map(rq => {
+                const active = form.raquette_id === rq.id;
+                return (
+                  <button key={rq.id} type="button" onClick={() => pickRaquette(rq)}
+                    className="w-full flex items-center gap-3 px-4 h-14 rounded-xl border-2 transition text-left bg-white"
+                    style={{ borderColor: active ? RED : "#e5e7eb", background: active ? "rgba(225,6,0,0.04)" : "#fff" }}>
+                    <span className="text-2xl">🏸</span>
+                    <span className="font-semibold text-gray-800 truncate">{raqLabel(rq)}</span>
+                    {active && <span className="ml-auto text-lg font-bold" style={{ color: RED }}>✓</span>}
+                  </button>
+                );
+              })}
+
+              {!addingRaq ? (
+                <button type="button" onClick={() => { setAddingRaq(true); setForm(f => ({ ...f, raquette_id: "" })); }}
+                  className="w-full h-11 rounded-xl border-2 border-dashed text-sm text-gray-500 transition"
+                  style={{ borderColor: "#d1d5db" }}>
+                  + Déposer une autre raquette
+                </button>
+              ) : (
+                <div className="border-2 rounded-xl p-3 space-y-2" style={{ borderColor: RED }}>
+                  <div className="text-sm font-semibold" style={{ color: RED }}>
+                    {myRaquettes.length ? "Nouvelle raquette" : "Ta raquette"}
+                  </div>
+                  <input className="w-full border-2 rounded-xl px-4 h-11 text-sm focus:outline-none transition"
+                    style={{ borderColor: newRaq.brand ? RED : "#e5e7eb" }}
+                    placeholder="Marque (ex: YONEX)" value={newRaq.brand}
+                    onChange={e => setNewRaq(r => ({ ...r, brand: e.target.value.toUpperCase() }))} />
+                  <input className="w-full border-2 rounded-xl px-4 h-11 text-sm focus:outline-none transition"
+                    style={{ borderColor: newRaq.model ? RED : "#e5e7eb" }}
+                    placeholder="Modèle * (ex: ASTROX 88S PRO)" value={newRaq.model}
+                    onChange={e => setNewRaq(r => ({ ...r, model: e.target.value.toUpperCase() }))} />
+                  {myRaquettes.length > 0 && (
+                    <button type="button" onClick={() => { setAddingRaq(false); setNewRaq({ brand: "", model: "" }); }}
+                      className="w-full h-9 rounded-lg border text-xs text-gray-600">Annuler</button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Club */}
+            <div className="mt-4 pt-4 border-t">
+              <label className="block mb-1 text-sm font-medium text-gray-700">🛡️ Ton club</label>
+              <select className="w-full border-2 rounded-xl px-4 h-11 bg-white text-sm focus:outline-none transition"
+                style={{ borderColor: client.club ? RED : "#e5e7eb" }}
+                value={client.club || ""}
+                onChange={e => setClient(c => ({ ...c, club: e.target.value }))}>
+                <option value="">— Choisir un club —</option>
+                {clubs.map(cl => <option key={cl.clubs} value={cl.clubs}>{cl.clubs}</option>)}
+              </select>
+            </div>
+
+            {formErr && <p className="mt-3 text-sm text-red-600 font-medium">{formErr}</p>}
+
+            <div className="mt-5 flex gap-2">
+              <button type="button" onClick={() => setStep(STEP.PHONE)}
+                className="flex-1 h-11 rounded-xl border text-sm text-gray-600 hover:bg-gray-50">← Retour</button>
+              <Btn className="flex-1" onClick={() => {
+                const isNew = addingRaq && !form.raquette_id;
+                if (!form.raquette_id && !newRaq.model.trim()) { setFormErr("Choisis ta raquette ou indique son modèle."); return; }
+                if (!client.club) { setFormErr("Le club est requis."); return; }
+                if (isNew) setForm(f => ({ ...f, raquette: [newRaq.brand.trim(), newRaq.model.trim()].filter(Boolean).join(" ") }));
+                setFormErr(""); setStep(STEP.CORDAGE);
+              }}>Continuer →</Btn>
+            </div>
+          </Card>
+        )}
+
+        {/* ── ÉTAPE 3b : Cordage & tension ── */}
+        {step === STEP.CORDAGE && client && (
+          <Card title="🧵 Cordage & tension" subtitle={form.raquette ? `Pour ta ${form.raquette}` : "Renseigne tes préférences pour ce cordage"}>
             <form onSubmit={e => {
               e.preventDefault();
-              if (!form.raquette.trim())  { setFormErr("Le modèle de raquette est requis."); return; }
-              if (!client.club)           { setFormErr("Le club est requis."); return; }
               if (!form.fourni && !form.cordage_id) { setFormErr("Le cordage est requis."); return; }
               if (!form.tension.trim())   { setFormErr("La tension est requise."); return; }
               setFormErr(""); setStep(STEP.CONFIRM);
             }}>
               <div className="space-y-4">
-                <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-700">Ton club</label>
-                  <select className="w-full border-2 rounded-xl px-4 h-11 bg-white text-sm focus:outline-none transition"
-                    style={{ borderColor: client.club ? RED : "#e5e7eb" }}
-                    value={client.club || ""}
-                    onChange={e => setClient(c => ({ ...c, club: e.target.value }))}>
-                    <option value="">— Aucun club —</option>
-                    {clubs.map(cl => <option key={cl.clubs} value={cl.clubs}>{cl.clubs}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-700">Raquette</label>
-                  <input className="w-full border-2 rounded-xl px-4 h-11 text-sm focus:outline-none transition"
-                    style={{ borderColor: form.raquette ? RED : "#e5e7eb" }}
-                    placeholder="YONEX ASTROX 88S PRO" value={form.raquette}
-                    onChange={e => { const v = e.target.value.toUpperCase(); setForm(f => ({ ...f, raquette: v, raquette_id: "" })); }} />
-                  {(client.raquettes || []).length > 0 && (
-                    <div className="mt-2">
-                      <div className="text-xs text-gray-500 mb-1.5">Tes raquettes :</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {client.raquettes.map(r => {
-                          const active = form.raquette_id === r.id;
-                          return (
-                            <button key={r.id} type="button"
-                              onClick={() => setForm(f => ({
-                                ...f,
-                                raquette_id: r.id,
-                                raquette: [r.brand, r.model].filter(Boolean).join(" "),
-                                ...(r.pref_cordage_id && !f.fourni && cordages.some(c => c.cordage === r.pref_cordage_id) ? { cordage_id: r.pref_cordage_id } : {}),
-                                ...(r.pref_tension ? { tension: r.pref_tension } : {}),
-                              }))}
-                              className="inline-flex items-center gap-1 h-8 px-3 rounded-full border-2 text-xs font-semibold transition"
-                              style={active
-                                ? { background: "rgba(225,6,0,0.08)", borderColor: RED, color: RED }
-                                : { background: "#fff", borderColor: "#e5e7eb", color: "#374151" }}>
-                              🏸 {[r.brand, r.model].filter(Boolean).join(" ")}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
                 {/* Cordage fourni */}
                 <button type="button" onClick={() => setForm(f => ({ ...f, fourni: !f.fourni, cordage_id: "" }))}
                   className="w-full flex items-center gap-3 px-4 h-12 rounded-xl border-2 transition text-left"
@@ -509,14 +563,14 @@ export default function TournoiPublic() {
                   </label>
                   {form.fourni ? (
                     <input
-                      className="w-full border-2 rounded-xl px-4 h-11 text-sm focus:outline-none transition"
+                      className="w-full border-2 rounded-xl px-4 h-12 text-sm focus:outline-none transition"
                       style={{ borderColor: form.cordage_id ? RED : "#e5e7eb" }}
                       placeholder="ex: BG65, Victor VS850…"
                       value={form.cordage_id}
                       onChange={e => setForm(f => ({ ...f, cordage_id: e.target.value }))}
                     />
                   ) : (
-                    <select className="w-full border-2 rounded-xl px-4 h-11 bg-white text-sm focus:outline-none transition"
+                    <select className="w-full border-2 rounded-xl px-4 h-12 bg-white text-sm focus:outline-none transition"
                       style={{ borderColor: form.cordage_id ? RED : "#e5e7eb" }}
                       value={form.cordage_id}
                       onChange={e => setForm(f => ({ ...f, cordage_id: e.target.value }))}>
@@ -545,7 +599,7 @@ export default function TournoiPublic() {
                     Tension
                     <span className="ml-1 text-xs text-gray-400 font-normal">(ex: 11 ou 11-11,5)</span>
                   </label>
-                  <input className="w-full border-2 rounded-xl px-4 h-11 text-sm focus:outline-none transition"
+                  <input className="w-full border-2 rounded-xl px-4 h-12 text-sm focus:outline-none transition"
                     style={{ borderColor: form.tension ? RED : "#e5e7eb" }}
                     placeholder="11" value={form.tension}
                     onChange={e => setForm(f => ({ ...f, tension: e.target.value }))} />
@@ -583,7 +637,7 @@ export default function TournoiPublic() {
               {formErr && <p className="mt-3 text-sm text-red-600 font-medium">{formErr}</p>}
 
               <div className="mt-5 flex gap-2">
-                <button type="button" onClick={() => setStep(STEP.PHONE)}
+                <button type="button" onClick={() => { setFormErr(""); setStep(STEP.RACKET); }}
                   className="flex-1 h-11 rounded-xl border text-sm text-gray-600 hover:bg-gray-50">← Retour</button>
                 <Btn type="submit" className="flex-1">Vérifier →</Btn>
               </div>
@@ -623,7 +677,7 @@ export default function TournoiPublic() {
             </div>
             {formErr && <p className="mt-3 text-sm text-red-600 font-medium">{formErr}</p>}
             <div className="mt-5 flex gap-2">
-              <button type="button" onClick={() => setStep(STEP.RACKET)}
+              <button type="button" onClick={() => setStep(STEP.CORDAGE)}
                 className="flex-1 h-11 rounded-xl border text-sm text-gray-600 hover:bg-gray-50">← Modifier</button>
               <Btn className="flex-1" onClick={handleConfirmSubmit} loading={saving}>🏸 Déposer ma raquette</Btn>
             </div>
@@ -651,7 +705,7 @@ export default function TournoiPublic() {
               <button type="button"
                 onClick={() => {
                   setStep(STEP.PHONE); setPhone(""); setClient(null);
-                  setForm({ raquette: "", cordage_id: "", tension: "", notes: "", fourni: false });
+                  setForm({ raquette: "", raquette_id: "", cordage_id: "", tension: "", notes: "", fourni: false });
                 }}
                 className="w-full h-11 rounded-xl border-2 text-sm font-semibold transition"
                 style={{ borderColor: RED, color: RED, background: "#fff" }}>
