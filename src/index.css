@@ -118,3 +118,13 @@
 }
 }
   
+/* ── z-index arbitraires (z-[…]) : non générés par Tailwind v2 (postcss7-compat) ── */
+.z-\[100\]   { z-index: 100; }
+.z-\[120\]   { z-index: 120; }
+.z-\[200\]   { z-index: 200; }
+.z-\[2000\]  { z-index: 2000; }
+.z-\[2100\]  { z-index: 2100; }
+.z-\[2500\]  { z-index: 2500; }
+.z-\[3000\]  { z-index: 3000; }
+.z-\[9999\]  { z-index: 9999; }
+.z-\[10000\] { z-index: 10000; }

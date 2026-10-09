@@ -12,6 +12,15 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
+    // Garde-fou : si getSession() ne répond jamais (ex. app mobile sortie de
+    // veille), on arrête d'attendre → page de connexion au lieu d'un
+    // "Chargement..." infini.
+    const timeout = setTimeout(() => {
+      if (!mounted) return;
+      console.warn("getSession timeout");
+      setLoading(false);
+    }, 8000);
+
     // Charge la session existante (persistée par supabase-js)
     supabase.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
@@ -24,7 +33,10 @@ export function AuthProvider({ children }) {
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
-    });
+    }).catch((err) => {
+      console.error("getSession error:", err);
+      if (mounted) setLoading(false);
+    }).finally(() => clearTimeout(timeout));
 
     // Ecoute login/logout/refresh token
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
@@ -35,6 +47,7 @@ export function AuthProvider({ children }) {
 
     return () => {
       mounted = false;
+      clearTimeout(timeout);
       sub.subscription.unsubscribe();
     };
   }, []);
