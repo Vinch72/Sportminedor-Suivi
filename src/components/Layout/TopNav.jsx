@@ -5,13 +5,14 @@ import sportminedorLogo from "../../assets/sportminedor-logo.png";
 import { useAuth } from "../../auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
+import { useDepotAlerts } from "../../hooks/useDepotAlerts";
 
 // NavLink ajoute aria-current="page" mais pas de classe "active" en v6.
 // On passe une fonction className pour appliquer sidebar-link--active.
 const linkCls = ({ isActive }) =>
   isActive ? "sidebar-link sidebar-link--active" : "sidebar-link";
 
-function SidebarContent({ isTournamentOnly, unlocked, onAddClick, onNavigate, onLogout }) {
+function SidebarContent({ isTournamentOnly, unlocked, onAddClick, onNavigate, onLogout, depotTotal = 0 }) {
   return (
     <div className="flex flex-col h-full">
       {/* Logo */}
@@ -54,6 +55,13 @@ function SidebarContent({ isTournamentOnly, unlocked, onAddClick, onNavigate, on
             <NavLink to="/clubs" className={linkCls} onClick={onNavigate}>
               <span aria-hidden>🛡️</span>
               <span>Clubs</span>
+              {depotTotal > 0 && (
+                <span title={`${depotTotal} dépôt(s) casier en attente`}
+                  className="ml-auto h-5 px-1.5 rounded-full font-bold text-white flex items-center justify-center"
+                  style={{ background: "#dc2626", minWidth: 20, fontSize: 11 }}>
+                  {depotTotal}
+                </span>
+              )}
             </NavLink>
             <NavLink to="/cordages" className={linkCls} onClick={onNavigate}>
               <span aria-hidden>🧵</span>
@@ -116,7 +124,11 @@ export default function TopNav({ unlocked, onAddClick, role }) {
     navigate("/login", { replace: true });
   }
 
+  // Dépôts casier en attente (badge sur "Clubs") — staff uniquement
+  const { total: depotTotal } = useDepotAlerts(!!role && role !== "tournament_only" && role !== "partner");
+
   const sharedProps = {
+    depotTotal,
     isTournamentOnly,
     unlocked,
     onAddClick,

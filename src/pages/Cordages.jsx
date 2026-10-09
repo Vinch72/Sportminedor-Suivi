@@ -31,8 +31,8 @@ function ActionBubble({ title, onClick, variant = "muted", children }) {
 
 function CategoryBadge({ isBase }) {
   return (
-    <span className="text-[10px] font-medium px-1.5 py-px rounded-full shrink-0 leading-none"
-      style={isBase ? { background: "#eff6ff", color: "#3b82f6" } : { background: "#f5f3ff", color: "#8b5cf6" }}>
+    <span className="font-medium px-1.5 py-px rounded-full shrink-0 leading-none"
+      style={{ fontSize: 10, ...(isBase ? { background: "#eff6ff", color: "#3b82f6" } : { background: "#f5f3ff", color: "#8b5cf6" }) }}>
       {isBase ? "basique" : "spécifique"}
     </span>
   );
@@ -215,7 +215,7 @@ export default function Cordages() {
 
       {/* Barre : recherche + compteurs + ajout */}
       <div className="flex gap-3 mb-5 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1" style={{ minWidth: 200 }}>
           <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
             <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </div>

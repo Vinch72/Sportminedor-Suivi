@@ -23,6 +23,7 @@ import Stats from "./pages/Stats";
 import TournoisPage from "./pages/TournoisPage";
 import Donnees from "./pages/Donnees";
 import Cordages from "./pages/Cordages";
+import DepotPublic from "./pages/DepotPublic";
 import TournoiPublic    from "./pages/TournoiPublic";
 import PartenariatPage  from "./pages/PartenariatPage";
 import PartnerPortalPage from "./pages/PartnerPortalPage";
@@ -89,7 +90,7 @@ function Shell() {
   const location = useLocation();
   const isLoginPage  = location.pathname === "/login";
   const isPortalPage = location.pathname === "/portal";
-  const isPublicPage = location.pathname === "/login" || location.pathname === "/tournoi" || isPortalPage;
+  const isPublicPage = location.pathname === "/login" || location.pathname === "/tournoi" || location.pathname === "/depot" || isPortalPage;
 
   const [unlocked, setUnlocked] = useState(isDonneesUnlocked());
   const [addOpen, setAddOpen] = useState(false);
@@ -176,6 +177,7 @@ function Shell() {
           {/* Public */}
           <Route path="/login"   element={<Login />} />
           <Route path="/tournoi" element={<TournoiPublic />} />
+          <Route path="/depot"   element={<DepotPublic />} />
           <Route path="/mentions-legales" element={<MentionsLegales />} />
 
           {/* Private */}

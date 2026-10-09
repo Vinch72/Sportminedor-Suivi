@@ -79,7 +79,7 @@ export default function RaquettesModal({ client, cordages = [], onClose }) {
 
   return createPortal(
     <div className="fixed inset-0 z-[10000] flex items-center justify-center modal-overlay p-3" onClick={onClose}>
-      <div className="w-full max-w-lg max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ maxHeight: "90vh" }} onClick={e => e.stopPropagation()}>
         {/* En-tête */}
         <div className="px-5 py-4 border-b bg-gray-900 text-white flex items-center justify-between shrink-0">
           <div className="min-w-0">

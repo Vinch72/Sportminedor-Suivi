@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../utils/supabaseClient";
 import PageHeader from "../components/ui/PageHeader"
+import ClubCasier from "../components/clubs/ClubCasier";
+import { useDepotAlerts } from "../hooks/useDepotAlerts";
 
 // Helpers
 function normStr(s) {
@@ -102,6 +104,10 @@ function fileToDataUrl(file) {
   // alert badge per club (multiples of 20)
   const [alerts, setAlerts] = useState({}); // { [clubName]: number }
 
+  // Casier (dépôts QR) : dépôts en attente par club + fenêtre ouverte
+  const { depots: pendingDepots, byClub: pendingByClub } = useDepotAlerts(true);
+  const [casierClub, setCasierClub] = useState(null);
+
   const doneBase = Number(selected?.billed_base_batches ?? 0);
   const doneSpec = Number(selected?.billed_spec_batches ?? 0);
 
@@ -111,7 +117,7 @@ function fileToDataUrl(file) {
       const [clb, crd] = await Promise.all([
         supabase
           .from("clubs")
-          .select("clubs, bobine_base, bobine_specific, note, billed_base_batches, billed_spec_batches, logo_url")
+          .select("clubs, bobine_base, bobine_specific, note, billed_base_batches, billed_spec_batches, logo_url, depot_token, notification_message, notification_start, notification_end")
           .order("clubs"),
         supabase
           .from("cordages")
@@ -221,6 +227,10 @@ if (editingName !== finalPayload.clubs) {
     .update(finalPayload)
     .eq("clubs", editingName);
   if (upErr) throw upErr;
+  // Dépôts casier : suivent le nouveau nom du club
+  await supabase.from("depot_casier").update({ club_id: finalPayload.clubs }).eq("club_id", editingName);
+  await supabase.from("depot_casier").update({ client_club: finalPayload.clubs }).eq("client_club", editingName);
+  window.dispatchEvent(new CustomEvent("depot:changed"));
 } else {
   const { error } = await supabase
     .from("clubs")
@@ -678,6 +688,20 @@ async function openBobineLot(type, batchIndex) {
   >
     Spécifique : {c?.bobine_specific ? "Oui" : "Non"}
   </span>
+  <button
+    type="button"
+    onClick={(e) => { e.stopPropagation(); setCasierClub(c); }}
+    title="Casier : dépôts QR, message, QR code"
+    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border border-blue-200 text-blue-700 bg-white hover:bg-blue-50"
+  >
+    🔐 Casier
+    {(pendingByClub[c.clubs] || 0) > 0 && (
+      <span className="ml-0.5 h-4 px-1.5 rounded-full font-bold text-white flex items-center justify-center"
+        style={{ background: "#dc2626", fontSize: 10, minWidth: 16 }}>
+        {pendingByClub[c.clubs]}
+      </span>
+    )}
+  </button>
 </div>
     </div>
   </div>
@@ -749,6 +773,21 @@ async function openBobineLot(type, batchIndex) {
   </Modal>
 )}
       </div>
+
+      {/* Casier du club */}
+      {casierClub && (
+        <ClubCasier
+          club={casierClub}
+          clubs={clubs}
+          cordages={cordages}
+          pending={pendingDepots.filter(d => d.club_id === casierClub.clubs)}
+          onClose={() => setCasierClub(null)}
+          onClubUpdated={(updated) => {
+            setClubs(prev => prev.map(x => x.clubs === updated.clubs ? { ...x, ...updated } : x));
+            setCasierClub(updated);
+          }}
+        />
+      )}
 
       {/* Popup détail + stats + notes */}
       {selected && (
