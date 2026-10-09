@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
 import sportminedorLogo from "../assets/sportminedor-logo.png";
+import CordageInfoCard from "../components/CordageInfo";
+import { CORDAGE_INFO_COLS, hasCordageInfo } from "../utils/cordages";
 
 // ── Constantes ───────────────────────────────────────────────────────────────
 const RED = "#E10600";
@@ -106,7 +108,7 @@ export default function TournoiPublic() {
     async function init() {
       const [rT, rC, rCl, rTm, rTCord] = await Promise.all([
         supabase.from("tournois").select("tournoi, start_date, end_date, date, infos").eq("tournoi", tournoiId).single(),
-        supabase.from("cordages").select("cordage, is_base, marque").order("marque", { nullsFirst: false }).order("cordage"),
+        supabase.from("cordages").select(`cordage, is_base, marque, ${CORDAGE_INFO_COLS}`).order("marque", { nullsFirst: false }).order("cordage"),
         supabase.from("clubs").select("clubs, bobine_base, bobine_specific").order("clubs"),
         supabase.from("tarif_matrix").select("*"),
         supabase.from("tournoi_cordages").select("cordage_id").eq("tournoi", tournoiId),
@@ -570,27 +572,8 @@ export default function TournoiPublic() {
                       onChange={e => setForm(f => ({ ...f, cordage_id: e.target.value }))}
                     />
                   ) : (
-                    <select className="w-full border-2 rounded-xl px-4 h-12 bg-white text-sm focus:outline-none transition"
-                      style={{ borderColor: form.cordage_id ? RED : "#e5e7eb" }}
-                      value={form.cordage_id}
-                      onChange={e => setForm(f => ({ ...f, cordage_id: e.target.value }))}>
-                      <option value="">— Choisir un cordage —</option>
-                      {(() => {
-                        const groups = {};
-                        const order = [];
-                        cordages.forEach(c => {
-                          const g = c.marque || "Autres";
-                          if (!groups[g]) { groups[g] = []; order.push(g); }
-                          groups[g].push(c);
-                        });
-                        if (order.length <= 1) return cordages.map(c => <option key={c.cordage} value={c.cordage}>{c.cordage}</option>);
-                        return order.map(g => (
-                          <optgroup key={g} label={g}>
-                            {groups[g].map(c => <option key={c.cordage} value={c.cordage}>{c.cordage}</option>)}
-                          </optgroup>
-                        ));
-                      })()}
-                    </select>
+                    <CordagePicker cordages={cordages} value={form.cordage_id}
+                      onChange={v => setForm(f => ({ ...f, cordage_id: v }))} />
                   )}
                 </div>
 
@@ -725,6 +708,67 @@ export default function TournoiPublic() {
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
+
+// Liste des cordages (groupés par marque) avec bouton « i » → caractéristiques
+function CordagePicker({ cordages, value, onChange }) {
+  const [openInfo, setOpenInfo] = useState(null);
+
+  const groups = [];
+  const byBrand = {};
+  cordages.forEach(c => {
+    const g = c.marque || "Autres";
+    if (!byBrand[g]) { byBrand[g] = []; groups.push(g); }
+    byBrand[g].push(c);
+  });
+
+  return (
+    <div className="border-2 rounded-xl overflow-hidden bg-white"
+      style={{ borderColor: value ? RED : "#e5e7eb", maxHeight: "18rem", overflowY: "auto" }}>
+      {groups.map(g => (
+        <div key={g}>
+          {groups.length > 1 && (
+            <div className="px-3 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wide"
+              style={{ background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>{g}</div>
+          )}
+          {byBrand[g].map(c => {
+            const selected = value === c.cordage;
+            const info = hasCordageInfo(c);
+            const isOpen = openInfo === c.cordage;
+            return (
+              <div key={c.cordage} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                <div className="flex items-center px-3 py-3 gap-3"
+                  style={{ background: selected ? "rgba(225,6,0,0.06)" : "transparent" }}>
+                  <button type="button" className="flex-1 text-left flex items-center gap-2.5 min-w-0"
+                    onClick={() => { onChange(c.cordage); setOpenInfo(null); }}>
+                    <div className="w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center"
+                      style={{ borderColor: selected ? RED : "#d1d5db" }}>
+                      {selected && <div className="w-2 h-2 rounded-full" style={{ background: RED }} />}
+                    </div>
+                    <span className={`text-sm truncate ${selected ? "font-semibold text-gray-900" : "text-gray-800"}`}>{c.cordage}</span>
+                  </button>
+                  {info && (
+                    <button type="button" aria-label={`Infos ${c.cordage}`}
+                      onClick={() => setOpenInfo(isOpen ? null : c.cordage)}
+                      className="w-6 h-6 rounded-full border-2 text-xs font-bold shrink-0 flex items-center justify-center"
+                      style={isOpen
+                        ? { background: RED, borderColor: RED, color: "#fff" }
+                        : { background: "#fff", borderColor: RED, color: RED }}>
+                      i
+                    </button>
+                  )}
+                </div>
+                {isOpen && info && (
+                  <div className="mx-3 mb-3"><CordageInfoCard cordage={c} /></div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Card({ title, subtitle, children }) {
   return (
     <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-5">

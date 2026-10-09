@@ -8,6 +8,7 @@ import { supabase } from "../utils/supabaseClient";
 import PageHeader from "../components/ui/PageHeader";
 import Toast from "../components/ui/Toast.jsx";
 import { IconEdit, IconTrash } from "../components/ui/Icons";
+import { CORDAGE_INFO_COLS, CORDAGE_INFO_FIELDS, hasCordageInfo } from "../utils/cordages";
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 function normStr(s) { return (s || "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
@@ -18,10 +19,12 @@ const capFirst = (v) => (v ? v[0].toUpperCase() + v.slice(1) : v);
 const RED = "#E10600";
 const RED_LIGHT = "rgba(225,6,0,0.08)";
 const RED_BORDER = "rgba(225,6,0,0.2)";
-const GRID = "1fr 120px 110px 100px 100px 90px";
+const GRID = "1fr 120px 110px 100px 100px 130px";
 
 function ActionBubble({ title, onClick, variant = "muted", children }) {
-  const style = variant === "danger" ? { borderColor: "#fecaca", color: "#ef4444" } : { borderColor: "#e5e7eb", color: "#374151" };
+  const style = variant === "danger" ? { borderColor: "#fecaca", color: "#ef4444" }
+    : variant === "active" ? { borderColor: RED, color: RED, background: RED_LIGHT }
+    : { borderColor: "#e5e7eb", color: "#374151" };
   const hover = variant === "danger" ? "hover:bg-red-50" : "hover:bg-gray-50";
   return <button type="button" title={title} onClick={onClick} className={`h-9 w-9 rounded-full border bg-white flex items-center justify-center transition shrink-0 ${hover}`} style={style}>{children}</button>;
 }
@@ -36,6 +39,26 @@ function CategoryBadge({ isBase }) {
 }
 
 const fmtGain = (cents) => (typeof cents === "number" ? `${centsToEuros(cents)} €` : "—");
+
+function IconInfo() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>;
+}
+
+function DotSelector({ label, value, onChange }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-sm text-gray-600 w-24 shrink-0">{label}</span>
+      <div className="flex gap-2 flex-1">
+        {[1, 2, 3, 4, 5].map(n => (
+          <button key={n} type="button" onClick={() => onChange(value === n ? 0 : n)}
+            className="w-8 h-8 rounded-full border-2 transition"
+            style={n <= (value || 0) ? { background: RED, borderColor: RED } : { background: "#fff", borderColor: "#d1d5db" }} />
+        ))}
+      </div>
+      <span className="text-xs text-gray-400 w-6 text-right">{value || 0}/5</span>
+    </div>
+  );
+}
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function Cordages() {
@@ -57,11 +80,40 @@ export default function Cordages() {
   const [toast, setToast] = useState({ open: false, title: "", message: "", variant: "success" });
   const showToast = (title, message, variant = "success") => setToast({ open: true, title, message, variant });
 
+  // Fenêtre "i" : caractéristiques affichées aux joueurs (page QR)
+  const [infoCord,   setInfoCord]   = useState(null);
+  const [infoVals,   setInfoVals]   = useState({});
+  const [infoSaving, setInfoSaving] = useState(false);
+
+  function openInfo(c) {
+    setInfoCord(c);
+    setInfoVals({
+      info_controle: c.info_controle || 0, info_puissance: c.info_puissance || 0,
+      info_durabilite: c.info_durabilite || 0, info_note: c.info_note || "",
+    });
+  }
+
+  async function saveInfo() {
+    setInfoSaving(true);
+    const patch = {
+      info_controle:   infoVals.info_controle   || null,
+      info_puissance:  infoVals.info_puissance  || null,
+      info_durabilite: infoVals.info_durabilite || null,
+      info_note:       (infoVals.info_note || "").trim() || null,
+    };
+    const { error } = await supabase.from("cordages").update(patch).eq("cordage", infoCord.cordage);
+    setInfoSaving(false);
+    if (error) { showToast("Erreur", error.message, "warning"); return; }
+    setCordages(prev => prev.map(x => x.cordage === infoCord.cordage ? { ...x, ...patch } : x));
+    setInfoCord(null);
+    showToast("✅ Infos", "Caractéristiques enregistrées.");
+  }
+
   async function loadAll() {
     setLoading(true);
     const { data, error } = await supabase
       .from("cordages")
-      .select("cordage, Couleur, is_base, gain_cents, gain_magasin_cents, marque")
+      .select(`cordage, Couleur, is_base, gain_cents, gain_magasin_cents, marque, ${CORDAGE_INFO_COLS}`)
       .order("marque", { nullsFirst: false }).order("cordage");
     if (error) showToast("Erreur", "Erreur de chargement : " + error.message, "warning");
     setCordages(data || []);
@@ -220,6 +272,7 @@ export default function Cordages() {
                       <div style={{ fontSize: 12, color: "#374151" }}>{fmtGain(c.gain_cents)}</div>
                       <div style={{ fontSize: 12, color: "#374151" }}>{fmtGain(c.gain_magasin_cents)}</div>
                       <div className="flex items-center gap-1">
+                        <ActionBubble title={hasCordageInfo(c) ? "Caractéristiques (renseignées)" : "Ajouter des caractéristiques"} onClick={() => openInfo(c)} variant={hasCordageInfo(c) ? "active" : "muted"}><IconInfo /></ActionBubble>
                         <ActionBubble title="Modifier" onClick={() => fillForm(c)}><IconEdit /></ActionBubble>
                         <ActionBubble title="Supprimer" onClick={() => setDeleteDialog(c)} variant="danger"><IconTrash /></ActionBubble>
                       </div>
@@ -241,6 +294,7 @@ export default function Cordages() {
                           Tournoi {fmtGain(c.gain_cents)} · Magasin {fmtGain(c.gain_magasin_cents)}
                         </div>
                       </div>
+                      <ActionBubble title="Caractéristiques" onClick={() => openInfo(c)} variant={hasCordageInfo(c) ? "active" : "muted"}><IconInfo /></ActionBubble>
                       <ActionBubble title="Modifier" onClick={() => fillForm(c)}><IconEdit /></ActionBubble>
                       <ActionBubble title="Supprimer" onClick={() => setDeleteDialog(c)} variant="danger"><IconTrash /></ActionBubble>
                     </div>
@@ -296,6 +350,32 @@ export default function Cordages() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Caractéristiques (i) */}
+      {infoCord && (
+        <Modal onClose={() => setInfoCord(null)} title="🎯 Caractéristiques" subtitle={[infoCord.cordage, infoCord.marque].filter(Boolean).join(" · ")}>
+          <div className="p-5 space-y-4">
+            {CORDAGE_INFO_FIELDS.map(f => (
+              <DotSelector key={f.key} label={f.label} value={infoVals[f.key]}
+                onChange={v => setInfoVals(s => ({ ...s, [f.key]: v }))} />
+            ))}
+            <div className="pt-1 border-t">
+              <label className="block text-sm text-gray-600 mb-1 mt-2">Note courte (optionnel)</label>
+              <textarea rows={2} value={infoVals.info_note}
+                onChange={e => setInfoVals(s => ({ ...s, info_note: e.target.value }))}
+                className="w-full border rounded-xl px-3 py-2 text-sm resize-none focus:outline-none"
+                placeholder="Ex : Idéal pour les joueurs cherchant du contrôle" />
+            </div>
+            <p className="text-xs text-gray-400">Visible par les joueurs via le bouton « i » de la page QR. Laisse un critère à 0 pour ne pas l'afficher.</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setInfoCord(null)} className="flex-1 h-10 rounded-xl border text-sm text-gray-600">Annuler</button>
+              <button type="button" onClick={saveInfo} disabled={infoSaving} className="flex-1 h-10 rounded-xl text-sm font-bold text-white disabled:opacity-50" style={{ background: RED }}>
+                {infoSaving ? "Enregistrement…" : "Enregistrer"}
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
 
