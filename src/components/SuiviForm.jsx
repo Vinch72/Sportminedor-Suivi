@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
 import { toCanonical, normalize } from "../utils/payment";
-import { raquetteLabel } from "../utils/raquettes";
+import { raquetteLabel, fetchClientRaquettes, resolveRaquette, saveRaquettePrefs as saveRaqPrefs } from "../utils/raquettes";
+import RaquetteChips from "./RaquetteChips";
 
 /**
  * Props optionnelles pour l'édition :
@@ -212,13 +213,8 @@ useEffect(() => {
   useEffect(() => {
     if (!clientId) { setClientRaquettes([]); return; }
     let alive = true;
-    supabase.from("raquettes")
-      .select("id, brand, model, pref_cordage_id, pref_tension")
-      .eq("client_id", clientId)
-      .order("created_at", { ascending: false })
-      .then(({ data, error }) => {
+    fetchClientRaquettes(clientId).then(list => {
         if (!alive) return;
-        const list = error ? [] : (data || []);
         setClientRaquettes(list);
         // Changement de client : la raquette liée n'est plus la sienne
         setRaquetteId(id => (id && !list.some(r => r.id === id) ? "" : id));
@@ -243,36 +239,17 @@ useEffect(() => {
     if (raquetteId && (!linked || raquetteLabel(linked) !== txt)) setRaquetteId("");
   }
 
-  // Raquette à lier au suivi : sélectionnée, sinon même libellé chez le client,
-  // sinon créée à partir du texte saisi. Jamais bloquant (null si échec).
+  // Raquette à lier au suivi (sélectionnée / même libellé / créée). Jamais bloquant.
   async function resolveRaquetteId() {
-    const txt = (raquette || "").trim().toUpperCase();
-    if (!clientId || !txt) return null;
-    if (raquetteId) return raquetteId;
-    const same = clientRaquettes.find(r =>
-      raquetteLabel(r).toUpperCase() === txt || (r.model || "").toUpperCase() === txt);
-    if (same) return same.id;
-    try {
-      const { data, error } = await supabase.from("raquettes")
-        .insert({ client_id: clientId, model: txt, pref_cordage_id: cordageId || null, pref_tension: tension || null })
-        .select("id").single();
-      if (error) throw error;
-      setClientRaquettes(prev => [{ id: data.id, brand: null, model: txt, pref_cordage_id: cordageId || null, pref_tension: tension || null }, ...prev]);
-      return data.id;
-    } catch (e) {
-      console.warn("Création raquette ignorée:", e);
-      return null;
-    }
+    const { id, created } = await resolveRaquette({
+      clientId, text: raquette, selectedId: raquetteId, list: clientRaquettes, cordageId, tension,
+    });
+    if (created) setClientRaquettes(prev => [created, ...prev]);
+    return id;
   }
 
   // "Enregistrer pour les futurs cordages" : mémorise aussi sur la raquette
-  async function saveRaquettePrefs(id) {
-    if (!id) return;
-    const { error } = await supabase.from("raquettes")
-      .update({ pref_cordage_id: cordageId || null, pref_tension: tension || null })
-      .eq("id", id);
-    if (error) console.warn("Maj préférences raquette ignorée:", error);
-  }
+  const saveRaquettePrefs = (id) => saveRaqPrefs(id, { cordageId, tension });
 
   // helpers labels + calcul tarif
   const clientsMap = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients]);
@@ -665,25 +642,7 @@ onDone?.({ type: "created", count: data.length });
 <div className="grid grid-cols-1 gap-4">
   <Field label="Modèle de raquette">
     <input type="text" value={raquette} onChange={e=>onRaquetteTextChange(e.target.value)} className="w-full border rounded-lg p-2" placeholder="ex: Astrox 88 S Pro" />
-    {clientRaquettes.length > 0 && (
-      <div className="mt-2">
-        <div className="text-xs text-gray-400 mb-1">Raquettes du client :</div>
-        <div className="flex flex-wrap gap-1.5">
-          {clientRaquettes.map(r => {
-            const active = r.id === raquetteId;
-            return (
-              <button key={r.id} type="button" onClick={() => pickRaquette(r)}
-                className="px-2.5 py-1 rounded-full border text-xs font-medium transition"
-                style={active
-                  ? { background: "rgba(225,6,0,0.08)", borderColor: "#E10600", color: "#E10600" }
-                  : { background: "#fff", borderColor: "#e5e7eb", color: "#374151" }}>
-                🏸 {raquetteLabel(r)}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    )}
+    <RaquetteChips raquettes={clientRaquettes} selectedId={raquetteId} onPick={pickRaquette} />
   </Field>
 
   <Field label="Cordeur">

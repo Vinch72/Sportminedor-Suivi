@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../utils/supabaseClient";
 import PageHeader from "../components/ui/PageHeader"
-import ClientRaquettes from "../components/ClientRaquettes";
+import RaquettesModal from "../components/ClientRaquettes";
 
 // === Helpers (declare BEFORE component to avoid TDZ) ===
 function normStr(s) {
@@ -118,6 +118,7 @@ export default function Clients() {
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
   const [showDuplicates, setShowDuplicates] = useState(false);
+  const [raquettesClient, setRaquettesClient] = useState(null); // fenêtre "Raquettes"
 
   // chargement des lookups + clients
   async function loadAll() {
@@ -439,6 +440,8 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
                         onSelect={c => { setSelected(c); setNotesDraft(c.notes ?? ""); }}
                         onEdit={fillFormFromClient}
                         onDelete={onDeleteClient}
+              onRaquettes={setRaquettesClient}
+                        onRaquettes={setRaquettesClient}
                         notePreview={notePreview}
                       />
                     ))}
@@ -466,6 +469,7 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
                         onSelect={c => { setSelected(c); setNotesDraft(c.notes ?? ""); }}
                         onEdit={fillFormFromClient}
                         onDelete={onDeleteClient}
+                        onRaquettes={setRaquettesClient}
                         notePreview={notePreview}
                       />
                     ))}
@@ -580,7 +584,11 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
           <Detail label="Téléphone" value={selected.phone ?? selected.telephone ?? "—"} />
           <Detail label="Email" value={selected.email ?? "—"} />
 
-          <ClientRaquettes clientId={selected.id} cordages={cordages} />
+          <button type="button"
+            onClick={() => { setRaquettesClient(selected); setSelected(null); }}
+            className="mt-4 w-full h-10 rounded-xl border border-[#E10600] text-[#E10600] text-sm font-medium hover:bg-red-50 transition">
+            🏸 Voir / gérer les raquettes
+          </button>
 
           <div className="mt-4">
             <div className="text-sm text-gray-500 mb-1">Notes</div>
@@ -605,6 +613,10 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
           </div>
         </Modal>
       )}
+
+{raquettesClient && (
+  <RaquettesModal client={raquettesClient} cordages={cordages} onClose={() => setRaquettesClient(null)} />
+)}
 
 {deleteDialog && (
   <div
@@ -671,7 +683,7 @@ setTimeout(() => setNotesSaved(false), 2000); // revient à l’état normal apr
 }
 
 /* ===== UI helpers ===== */
-function ClientCard({ c, onSelect, onEdit, onDelete, notePreview }) {
+function ClientCard({ c, onSelect, onEdit, onDelete, onRaquettes, notePreview }) {
   return (
     <div
       role="button"
@@ -698,6 +710,11 @@ function ClientCard({ c, onSelect, onEdit, onDelete, notePreview }) {
                   {c.tension}
                 </span>
               ) : null}
+              <button type="button"
+                onClick={(e) => { e.stopPropagation(); onRaquettes(c); }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-blue-200 bg-white text-blue-700 font-medium hover:bg-blue-50 transition whitespace-nowrap">
+                🏸 Raquettes
+              </button>
             </div>
           </div>
           <div className="shrink-0 text-right">

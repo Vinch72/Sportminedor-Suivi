@@ -5,7 +5,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../utils/supabaseClient";
-import PasscodeGate from "../components/PasscodeGate";
 import PageHeader from "../components/ui/PageHeader";
 import Toast from "../components/ui/Toast.jsx";
 import { IconEdit, IconTrash } from "../components/ui/Icons";
@@ -40,16 +39,6 @@ const fmtGain = (cents) => (typeof cents === "number" ? `${centsToEuros(cents)} 
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function Cordages() {
-  return (
-    <div className="p-6">
-      <PasscodeGate ttlHours={12}>
-        {({ lock }) => <CordagesContent lock={lock} />}
-      </PasscodeGate>
-    </div>
-  );
-}
-
-function CordagesContent({ lock }) {
   const [cordages,     setCordages]     = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [saving,       setSaving]       = useState(false);
@@ -166,16 +155,10 @@ function CordagesContent({ lock }) {
   const nbBase = cordages.filter(c => c.is_base).length;
 
   return (
-    <>
+    <div className="p-6">
       <PageHeader
         title="Cordages"
         description="Gérez les cordages disponibles et leurs paramètres de gain."
-        action={
-          <button onClick={lock} title="Verrouiller la page"
-            className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 transition px-3 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 bg-white">
-            🔒 Verrouiller
-          </button>
-        }
       />
 
       {/* Barre : recherche + compteurs + ajout */}
@@ -330,7 +313,7 @@ function CordagesContent({ lock }) {
       )}
 
       <Toast open={toast.open} onClose={() => setToast(t => ({ ...t, open: false }))} title={toast.title} message={toast.message} variant={toast.variant} />
-    </>
+    </div>
   );
 }
 

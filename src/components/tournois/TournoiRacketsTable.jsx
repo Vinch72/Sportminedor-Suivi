@@ -153,6 +153,7 @@
         statut_id: row.statut_id ?? null,
         date: toISODateOnly(row.date),
         raquette: row.raquette ?? null,
+        raquette_id: row.raquette_id ?? null,
         club_id: row.club_id ?? null,
         reglement_mode: (row.offert || /offert/i.test(String(row.reglement_mode || ""))) ? "Offert" : (row.reglement_mode ?? null),
         reglement_date: row.reglement_date ?? null,

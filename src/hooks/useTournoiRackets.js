@@ -29,7 +29,7 @@ export function useTournoiRackets(tournoiName) {
           reglement_mode, reglement_date, exported, club_id,
           offert, fourni, contacted_at,
           gain_cents, gain_frozen_at,
-          raquette,
+          raquette, raquette_id,
           client_nom, client_prenom,
           client:clients(id, nom, prenom, phone),
           cordeur:cordeur(cordeur),
@@ -264,6 +264,7 @@ const exportAllToSuivi = useCallback(async (opts = {}) => {
 
       date: toISODateOnly(r.date),
       raquette: r.raquette || null,
+      raquette_id: r.raquette_id || null,
       club_id: r.club_id || null,
 
       reglement_mode: reglementModeSuivi || null,

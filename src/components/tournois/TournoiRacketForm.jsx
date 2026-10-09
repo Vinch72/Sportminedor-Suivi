@@ -3,6 +3,8 @@
   import { supabase } from "../../utils/supabaseClient";
   import ComboBox from "../ui/ComboBox";
   import CenteredModal from "../ui/CenteredModal";
+  import RaquetteChips from "../RaquetteChips";
+  import { raquetteLabel, fetchClientRaquettes, resolveRaquette, saveRaquettePrefs } from "../../utils/raquettes";
 
 function formatNom(s) {
   return (s || "").toUpperCase();
@@ -40,6 +42,7 @@ function formatPrenom(s) {
       cordeur_id: "",
       statut_id: "",
       raquette: "",
+      raquette_id: "",
       club_id: "",
       fourni: false,
       offert: false,
@@ -60,6 +63,7 @@ function formatPrenom(s) {
       cordeur_id: initialData.cordeur_id || initialData?.cordeur?.cordeur || "",
       statut_id: initialData.statut_id || "",
       raquette: initialData.raquette || "",
+      raquette_id: initialData.raquette_id || "",
       club_id: initialData.club_id || "",
       fourni: !!initialData.fourni,
       offert: !!initialData.offert,
@@ -69,6 +73,35 @@ function formatPrenom(s) {
   }, [editingId, initialData]);
 
   const [count, setCount] = useState(1);
+
+  // Raquettes enregistrées du client sélectionné (table raquettes)
+  const [clientRaquettes, setClientRaquettes] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    fetchClientRaquettes(form.client_id).then(list => {
+      if (!alive) return;
+      setClientRaquettes(list);
+      // Changement de client : la raquette liée n'est plus la sienne
+      setForm(f => (f.raquette_id && !list.some(r => r.id === f.raquette_id) ? { ...f, raquette_id: "" } : f));
+    });
+    return () => { alive = false; };
+  }, [form.client_id]);
+
+  const pickRaquette = (r) => setForm(f => ({
+    ...f,
+    raquette_id: r.id,
+    raquette: raquetteLabel(r),
+    // En création : cordage/tension mémorisés sur la raquette
+    ...(!editingId && r.pref_cordage_id ? { cordage_id: r.pref_cordage_id } : {}),
+    ...(!editingId && r.pref_tension ? { tension: r.pref_tension } : {}),
+  }));
+
+  const onRaquetteText = (v) => setForm(f => {
+    const txt = v.toUpperCase();
+    const linked = clientRaquettes.find(r => r.id === f.raquette_id);
+    const keep = f.raquette_id && linked && raquetteLabel(linked) === txt;
+    return { ...f, raquette: txt, raquette_id: keep ? f.raquette_id : "" };
+  });
 
     // ------- Lookups -------
     const loadLookups = async () => {
@@ -197,6 +230,14 @@ const submit = async (e) => {
       notes: form.notes || null,
     };
 
+    // Lien facultatif vers la table raquettes (le texte "raquette" reste rempli)
+    const { id: rqId, created } = await resolveRaquette({
+      clientId: form.client_id, text: form.raquette, selectedId: form.raquette_id,
+      list: clientRaquettes, cordageId: form.cordage_id, tension: form.tension,
+    });
+    if (created) setClientRaquettes(prev => [created, ...prev]);
+    if (rqId || initialData?.raquette_id) payload.raquette_id = rqId;
+
     if (editingId) {
       // ✅ MODE ÉDITION = UPDATE 1 ligne
       const { error } = await supabase
@@ -242,6 +283,7 @@ const submit = async (e) => {
         cordeur_id: "",
         statut_id: "",
         raquette: "",
+        raquette_id: "",
         club_id: "",
         fourni: false,
         offert: false,
@@ -261,6 +303,7 @@ const submit = async (e) => {
             tension: form.tension || null,
           })
           .eq("id", form.client_id);
+        await saveRaquettePrefs(payload.raquette_id, { cordageId: form.cordage_id, tension: form.tension });
 
         window.dispatchEvent(
           new CustomEvent("clients:updated", { detail: { id: form.client_id } })
@@ -385,9 +428,10 @@ const submit = async (e) => {
             <input
               className="border rounded-md px-3 py-2 w-full"
               value={form.raquette}
-              onChange={(e) => setForm((f) => ({ ...f, raquette: e.target.value.toUpperCase() }))}
+              onChange={(e) => onRaquetteText(e.target.value)}
               placeholder="Ex: Pure Drive, Pro Staff…"
             />
+            <RaquetteChips raquettes={clientRaquettes} selectedId={form.raquette_id} onPick={pickRaquette} />
           </div>
 
           <div>

@@ -51,7 +51,7 @@ export default function TournoiPublic() {
   const [newClient,    setNewClient]    = useState({ nom: "", prenom: "", phone: "", club_id: "" });
   const [clientErr,    setClientErr]    = useState("");
   const [savingClient, setSavingClient] = useState(false);
-  const [form,    setForm]    = useState({ raquette: "", cordage_id: "", tension: "", notes: "", fourni: false });
+  const [form,    setForm]    = useState({ raquette: "", raquette_id: "", cordage_id: "", tension: "", notes: "", fourni: false });
   const [formErr, setFormErr] = useState("");
   const [saving,  setSaving]  = useState(false);
 
@@ -205,6 +205,8 @@ export default function TournoiPublic() {
         p_cordage_text: cordageText,
         p_tension:      form.tension  || null,
         p_raquette:     form.raquette || null,
+        p_raquette_id:  form.raquette_id || null,
+        p_club:         client.club || null,
         p_notes:        form.notes    || null,
         p_fourni:       !!form.fourni,
       });
@@ -451,7 +453,33 @@ export default function TournoiPublic() {
                   <input className="w-full border-2 rounded-xl px-4 h-11 text-sm focus:outline-none transition"
                     style={{ borderColor: form.raquette ? RED : "#e5e7eb" }}
                     placeholder="YONEX ASTROX 88S PRO" value={form.raquette}
-                    onChange={e => setForm(f => ({ ...f, raquette: e.target.value.toUpperCase() }))} />
+                    onChange={e => { const v = e.target.value.toUpperCase(); setForm(f => ({ ...f, raquette: v, raquette_id: "" })); }} />
+                  {(client.raquettes || []).length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-500 mb-1.5">Tes raquettes :</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {client.raquettes.map(r => {
+                          const active = form.raquette_id === r.id;
+                          return (
+                            <button key={r.id} type="button"
+                              onClick={() => setForm(f => ({
+                                ...f,
+                                raquette_id: r.id,
+                                raquette: [r.brand, r.model].filter(Boolean).join(" "),
+                                ...(r.pref_cordage_id && !f.fourni && cordages.some(c => c.cordage === r.pref_cordage_id) ? { cordage_id: r.pref_cordage_id } : {}),
+                                ...(r.pref_tension ? { tension: r.pref_tension } : {}),
+                              }))}
+                              className="inline-flex items-center gap-1 h-8 px-3 rounded-full border-2 text-xs font-semibold transition"
+                              style={active
+                                ? { background: "rgba(225,6,0,0.08)", borderColor: RED, color: RED }
+                                : { background: "#fff", borderColor: "#e5e7eb", color: "#374151" }}>
+                              🏸 {[r.brand, r.model].filter(Boolean).join(" ")}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {/* Cordage fourni */}
                 <button type="button" onClick={() => setForm(f => ({ ...f, fourni: !f.fourni, cordage_id: "" }))}
